@@ -1,0 +1,60 @@
+/* Pont entre les tokens de marque (tokens.css) et le vocabulaire sémantique attendu par les
+   composants shadcn/ui (bg-background, bg-primary, text-foreground, etc.).
+
+   Règle : ce fichier ne redéfinit JAMAIS une variable déjà déclarée dans tokens.css (--accent,
+   --border, --surface, ...) — cela écraserait silencieusement sa valeur pour tout le reste de
+   l'app puisque les custom properties CSS ne sont pas namespacées. Il se contente de POINTER
+   vers elles sous de nouveaux noms, et n'introduit de nouvelles variables (--primary-foreground,
+   --destructive-foreground) que là où un contraste texte-sur-fond doit être réévalué par thème
+   (l'accent et le critical s'éclaircissent en dark mode -> le texte dessus doit s'assombrir). */
+
+:root {
+  --background: var(--bg);
+  --foreground: var(--ink);
+
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-muted);
+
+  /* Le "accent" shadcn (état hover/surbrillance discrète) reste distinct de la marque --accent :
+     il pointe directement vers --accent-soft / --accent-ink, sans redéfinir --accent lui-même. */
+  --accent-foreground: var(--accent-ink);
+
+  --destructive: var(--critical);
+  --destructive-foreground: #ffffff;
+
+  --input: var(--border);
+  --ring: var(--accent);
+
+  --radius: var(--radius-m);
+}
+
+/* Même cascade à 3 niveaux que tokens.css : media (auto) -> [data-theme] (override explicite,
+   spécificité supérieure donc gagne toujours). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-foreground: var(--sidebar-bg);
+    --destructive-foreground: var(--sidebar-bg);
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary-foreground: var(--sidebar-bg);
+  --destructive-foreground: var(--sidebar-bg);
+}
+
+:root[data-theme="light"] {
+  --primary-foreground: #ffffff;
+  --destructive-foreground: #ffffff;
+}

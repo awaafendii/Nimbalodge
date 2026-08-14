@@ -1,0 +1,16 @@
+{
+  "name": "nimbalodge-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NimbaLodge ERP — monorepo (apps/web, packages/ui, packages/utils). Le prototype legacy nimbalodge-app/ reste hors workspaces.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @nimbalodge/web",
+    "build:web": "npm run build -w @nimbalodge/web",
+    "build:ui": "npm run build -w @nimbalodge/ui --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

@@ -1,0 +1,72 @@
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+
+import { cn } from "../lib/utils.js";
+
+const badgeVariants = cva(
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-[var(--fw-small-strong)] transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  {
+    variants: {
+      variant: {
+        default: "border-transparent bg-primary text-primary-foreground",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        outline: "border-border text-foreground",
+        success: "border-transparent bg-good-soft text-good",
+        warning: "border-transparent bg-warning-soft text-warning",
+        critical: "border-transparent bg-critical-soft text-critical",
+        neutral: "border-transparent bg-secondary text-muted-foreground",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+);
+
+export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
+
+export function Badge({ className, variant, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
+}
+
+export { badgeVariants };
+
+// --- StatusBadge : port du comportement de nimbalodge-app/src/components/ui/Chip.jsx ---
+// Mappe un statut métier (paid/pending/late/good/warn/crit/vacant/neutral) vers un libellé FR et
+// une variante de couleur, pour rester compatible avec le vocabulaire de statut déjà utilisé dans
+// le prototype (factures, appartements, locataires) au moment de rebrancher ces pages.
+
+const STATUS_LABELS: Record<string, string> = {
+  good: "À jour",
+  warn: "À surveiller",
+  crit: "En retard",
+  vacant: "Vacant",
+  neutral: "—",
+  paid: "Payée",
+  pending: "En attente",
+  late: "En retard",
+};
+
+const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
+  paid: "success",
+  pending: "warning",
+  late: "critical",
+  good: "success",
+  warn: "warning",
+  crit: "critical",
+  vacant: "neutral",
+  neutral: "neutral",
+};
+
+export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
+  status: string;
+}
+
+export function StatusBadge({ status, children, ...props }: StatusBadgeProps) {
+  const variant = STATUS_VARIANTS[status] ?? "neutral";
+  return (
+    <Badge variant={variant} {...props}>
+      {children ?? STATUS_LABELS[status] ?? status}
+    </Badge>
+  );
+}
