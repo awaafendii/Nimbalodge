@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Djoliba — Gestion financière des hôtels, en francs guinéens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10302E; --ink-2:#17403C; --ink-3:#0B2523;
+    --gold:#C9A24B; --gold-2:#B98F38; --gold-soft:#EBDDB6;
+    --paper:#FAF9F5; --paper-2:#F2EFE6; --card:#FFFFFF;
+    --text:#1A2A28; --muted:#5C6B68; --muted-2:#7C8987;
+    --line:#E4E0D4; --line-dk:#2A4E4A;
+    --ok:#2F7A5B;
+    --shadow:0 1px 2px rgba(16,48,46,.04),0 12px 32px rgba(16,48,46,.08);
+    --shadow-lg:0 2px 4px rgba(16,48,46,.05),0 24px 60px rgba(16,48,46,.16);
+    --r:14px; --r-sm:10px; --r-lg:22px;
+    --disp:'Bricolage Grotesque',system-ui,sans-serif;
+    --body:'IBM Plex Sans',system-ui,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --wrap:1140px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{font-family:var(--body);color:var(--text);background:var(--paper);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3,h4{font-family:var(--disp);font-weight:600;line-height:1.08;letter-spacing:-.02em}
+  ::selection{background:var(--gold-soft);color:var(--ink)}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* ---------- eyebrow ---------- */
+  .eyebrow{font-family:var(--mono);font-size:.72rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-2);display:inline-flex;align-items:center;gap:.6em}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--gold);display:inline-block}
+  .on-dark .eyebrow{color:var(--gold)}
+
+  /* ---------- buttons ---------- */
+  .btn{display:inline-flex;align-items:center;gap:.5em;font-family:var(--body);font-weight:600;font-size:.98rem;padding:.82em 1.35em;border-radius:var(--r-sm);border:1px solid transparent;cursor:pointer;transition:transform .15s ease,box-shadow .2s ease,background .2s ease,color .2s ease;white-space:nowrap}
+  .btn svg{width:18px;height:18px}
+  .btn-primary{background:var(--gold);color:var(--ink-3);box-shadow:0 6px 18px rgba(201,162,75,.35)}
+  .btn-primary:hover{background:var(--gold-2);transform:translateY(-2px);box-shadow:0 10px 26px rgba(201,162,75,.45)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn-ghost:hover{border-color:var(--ink);transform:translateY(-2px)}
+  .on-dark .btn-ghost{color:#fff;border-color:var(--line-dk)}
+  .on-dark .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+  .btn-block{width:100%;justify-content:center}
+
+  /* ---------- header ---------- */
+  header{position:sticky;top:0;z-index:60;background:rgba(250,249,245,.82);backdrop-filter:blur(12px);border-bottom:1px solid transparent;transition:border-color .25s,box-shadow .25s}
+  header.scrolled{border-bottom-color:var(--line);box-shadow:0 8px 24px rgba(16,48,46,.05)}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:72px}
+  .brand{display:flex;align-items:center;gap:.6em;font-family:var(--disp);font-weight:700;font-size:1.28rem;letter-spacing:-.02em;color:var(--ink)}
+  .brand .logo{width:34px;height:34px;flex:none}
+  .nav-links{display:flex;align-items:center;gap:2rem}
+  .nav-links a{font-size:.95rem;font-weight:500;color:var(--muted);transition:color .18s}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-cta{display:flex;align-items:center;gap:1rem}
+  .nav-cta .login{font-size:.95rem;font-weight:600;color:var(--ink)}
+  .menu-btn{display:none;background:none;border:1px solid var(--line);border-radius:9px;padding:8px;cursor:pointer;color:var(--ink)}
+  .menu-btn svg{width:22px;height:22px;display:block}
+  .mobile-cta{display:none}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;background:radial-gradient(120% 120% at 85% -10%,var(--ink-2),var(--ink) 55%,var(--ink-3));color:#fff;overflow:hidden}
+  .hero::after{content:"";position:absolute;inset:0;background:
+    radial-gradient(50% 60% at 12% 105%,rgba(201,162,75,.16),transparent 70%);
+    pointer-events:none}
+  .hero .wrap{position:relative;z-index:2;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding-top:76px;padding-bottom:88px}
+  .hero h1{font-size:clamp(2.5rem,5.4vw,4rem);font-weight:600;color:#fff;margin:.5em 0 .55em}
+  .hero h1 em{font-style:normal;color:var(--gold)}
+  .hero .lede{font-size:1.16rem;color:#CBD8D5;max-width:34ch;margin-bottom:2rem}
+  .hero-actions{display:flex;gap:.9rem;flex-wrap:wrap}
+  .trust{display:flex;align-items:center;gap:.5rem .9rem;flex-wrap:wrap;margin-top:2.2rem;font-family:var(--mono);font-size:.78rem;letter-spacing:.02em;color:#9FB3AF}
+  .trust .dot{width:5px;height:5px;border-radius:50%;background:var(--gold)}
+
+  /* ---------- hero dashboard ---------- */
+  .dash{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:22px;color:var(--text);transform:rotate(.4deg)}
+  .dash-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .dash-hotel{display:flex;align-items:center;gap:10px}
+  .dash-hotel .av{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--ink-2),var(--ink));color:var(--gold);display:grid;place-items:center;font-family:var(--disp);font-weight:700;font-size:1.05rem}
+  .dash-hotel b{font-family:var(--disp);font-size:.98rem;letter-spacing:-.01em}
+  .dash-hotel span{font-size:.74rem;color:var(--muted-2)}
+  .dash-tag{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-2);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
+  .dash-hero-fig{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 14px;margin-bottom:14px}
+  .dash-hero-fig .lbl{font-size:.76rem;color:var(--muted);display:flex;align-items:center;justify-content:space-between}
+  .dash-hero-fig .badge{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--ok);background:rgba(47,122,91,.1);padding:2px 8px;border-radius:20px}
+  .dash-hero-fig .val{font-family:var(--mono);font-weight:600;font-size:1.62rem;letter-spacing:-.02em;margin-top:4px}
+  .dash-hero-fig .val small{font-size:.9rem;color:var(--muted);font-weight:500}
+  .dash-split{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+  .dash-split .c{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px}
+  .dash-split .c .k{font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .dash-split .c .k i{width:7px;height:7px;border-radius:2px;display:inline-block}
+  .dash-split .c .v{font-family:var(--mono);font-weight:600;font-size:1.02rem;margin-top:3px}
+  .dash-chart{display:flex;align-items:flex-end;gap:7px;height:66px;padding:0 2px 2px;border-bottom:1px solid var(--line);margin-bottom:14px}
+  .dash-chart .bar{flex:1;border-radius:4px 4px 0 0;background:var(--paper-2);position:relative}
+  .dash-chart .bar.g{background:linear-gradient(var(--gold),var(--gold-2))}
+  .dash-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:500;color:var(--ink-2);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:5px 10px}
+  .chip .live{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(47,122,91,.15)}
+  .chip.mm{color:#E8730C}.chip.mm2{color:#FFCC00;background:var(--ink);border-color:var(--ink)}
+
+  /* ---------- sections ---------- */
+  .section{padding:96px 0}
+  .section-head{max-width:640px;margin-bottom:52px}
+  .section-head.center{margin-left:auto;margin-right:auto;text-align:center}
+  .section-head h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:.55em 0 .4em}
+  .section-head p{font-size:1.1rem;color:var(--muted)}
+
+  /* ---------- constat band ---------- */
+  .constat{background:var(--paper-2)}
+  .constat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+  .constat .item{padding-top:22px;border-top:2px solid var(--ink)}
+  .constat .item .n{font-family:var(--mono);font-size:.78rem;color:var(--gold-2);letter-spacing:.1em}
+  .constat .item h3{font-size:1.2rem;margin:.7em 0 .4em}
+  .constat .item p{color:var(--muted);font-size:.98rem}
+
+  /* ---------- features ---------- */
+  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px;transition:transform .2s,box-shadow .2s,border-color .2s}
+  .feat:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:transparent}
+  .feat .ic{width:46px;height:46px;border-radius:12px;background:var(--ink);color:var(--gold);display:grid;place-items:center;margin-bottom:18px}
+  .feat .ic svg{width:23px;height:23px}
+  .feat h3{font-size:1.16rem;margin-bottom:.5em}
+  .feat p{color:var(--muted);font-size:.96rem}
+
+  /* ---------- pricing ---------- */
+  .pricing{background:var(--paper-2)}
+  .toggle{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:30px;padding:5px;margin:0 auto 12px;box-shadow:var(--shadow)}
+  .toggle button{font-family:var(--body);font-weight:600;font-size:.9rem;border:none;background:none;color:var(--muted);padding:.55em 1.1em;border-radius:24px;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:.5em}
+  .toggle button.active{background:var(--ink);color:#fff}
+  .toggle .save{font-family:var(--mono);font-size:.66rem;color:var(--gold-2);background:var(--gold-soft);padding:2px 7px;border-radius:12px}
+  .toggle button.active .save{background:var(--gold);color:var(--ink-3)}
+  .toggle-note{text-align:center;font-size:.84rem;color:var(--muted);margin-bottom:40px}
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:start}
+  .tier{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:30px 26px;position:relative;transition:transform .2s,box-shadow .2s}
+  .tier:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .tier.pop{border-color:var(--gold);box-shadow:0 20px 50px rgba(201,162,75,.18);background:linear-gradient(var(--card),var(--card)) padding-box}
+  .tier.pop::before{content:"Le plus choisi";position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--ink-3);font-family:var(--mono);font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:5px 13px;border-radius:20px}
+  .tier .name{font-family:var(--disp);font-weight:600;font-size:1.35rem;margin-bottom:4px}
+  .tier .who{font-size:.9rem;color:var(--muted);min-height:2.8em;margin-bottom:18px}
+  .tier-price{display:flex;align-items:baseline;gap:6px;font-family:var(--mono)}
+  .tier-price .amount{font-size:2.15rem;font-weight:600;letter-spacing:-.03em;color:var(--ink)}
+  .tier-price .period{font-size:.9rem;color:var(--muted)}
+  .tier-billing{font-family:var(--mono);font-size:.76rem;color:var(--muted-2);margin:6px 0 20px;min-height:1.1em}
+  .tier .btn{margin-bottom:22px}
+  .tier ul{list-style:none;display:flex;flex-direction:column;gap:11px}
+  .tier li{display:flex;gap:10px;font-size:.93rem;align-items:flex-start}
+  .tier li svg{width:18px;height:18px;flex:none;color:var(--gold-2);margin-top:2px}
+  .tier li.head{font-weight:600;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+  .tier li.head svg{display:none}
+  .price-foot{text-align:center;color:var(--muted);font-size:.85rem;margin-top:34px}
+  .price-foot b{color:var(--ink);font-weight:600}
+
+  /* ---------- comparison ---------- */
+  .cmp-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+  table.cmp{width:100%;min-width:640px;border-collapse:collapse;font-size:.93rem}
+  table.cmp th,table.cmp td{padding:14px 18px;text-align:left;border-bottom:1px solid var(--line)}
+  table.cmp thead th{position:sticky;top:0;background:var(--ink);color:#fff;font-family:var(--disp);font-weight:600;font-size:.95rem}
+  table.cmp thead th:not(:first-child){text-align:center;width:130px}
+  table.cmp tbody th{font-weight:500;color:var(--text)}
+  table.cmp td{text-align:center;color:var(--muted)}
+  table.cmp tr.cat th{background:var(--paper-2);font-family:var(--mono);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-2);font-weight:600}
+  table.cmp .yes{color:var(--gold-2)}
+  table.cmp .val{font-family:var(--mono);color:var(--ink);font-weight:500}
+  table.cmp tbody tr:hover td,table.cmp tbody tr:hover th{background:var(--paper)}
+  table.cmp svg{width:19px;height:19px}
+  .dash-cell{color:var(--line);font-weight:400}
+
+  /* ---------- services ---------- */
+  .svc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .svc{border:1px solid var(--line);border-radius:var(--r);padding:28px;background:var(--card);display:flex;flex-direction:column}
+  .svc .ic{width:44px;height:44px;border-radius:11px;background:var(--gold-soft);color:var(--gold-2);display:grid;place-items:center;margin-bottom:18px}
+  .svc .ic svg{width:22px;height:22px}
+  .svc h3{font-size:1.18rem;margin-bottom:.5em}
+  .svc p{color:var(--muted);font-size:.95rem;flex:1;margin-bottom:18px}
+  .svc .cost{font-family:var(--mono);border-top:1px solid var(--line);padding-top:14px}
+  .svc .cost b{font-size:1.15rem;font-weight:600}
+  .svc .cost span{font-size:.8rem;color:var(--muted);display:block}
+
+  /* ---------- conformite (dark) ---------- */
+  .conf{background:var(--ink);color:#fff}
+  .conf .wrap{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:center}
+  .conf h2{font-size:clamp(1.9rem,3.6vw,2.6rem);color:#fff;margin:.5em 0 .5em}
+  .conf .lede{color:#B9C9C6;font-size:1.08rem}
+  .conf-list{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .conf-item{border-top:1px solid var(--line-dk);padding-top:16px}
+  .conf-item .ic{color:var(--gold);margin-bottom:10px}
+  .conf-item .ic svg{width:24px;height:24px}
+  .conf-item h4{font-family:var(--disp);font-weight:600;font-size:1.05rem;margin-bottom:.35em}
+  .conf-item p{color:#A7BAB6;font-size:.9rem}
+
+  /* ---------- faq ---------- */
+  .faq-list{max-width:800px;margin:0 auto;border-top:1px solid var(--line)}
+  .faq-item{border-bottom:1px solid var(--line)}
+  .faq-q{width:100%;background:none;border:none;cursor:pointer;font-family:var(--disp);font-weight:600;font-size:1.1rem;color:var(--ink);text-align:left;padding:22px 44px 22px 0;position:relative;letter-spacing:-.01em}
+  .faq-q::after{content:"";position:absolute;right:6px;top:50%;width:11px;height:11px;border-right:2px solid var(--gold-2);border-bottom:2px solid var(--gold-2);transform:translateY(-65%) rotate(45deg);transition:transform .25s}
+  .faq-item.open .faq-q::after{transform:translateY(-35%) rotate(225deg)}
+  .faq-a{max-height:0;overflow:hidden;transition:max-height .3s ease}
+  .faq-a p{padding:0 44px 22px 0;color:var(--muted);font-size:.98rem}
+
+  /* ---------- final cta + form ---------- */
+  .cta{background:linear-gradient(120% 120% at 80% 0,var(--ink-2),var(--ink) 60%,var(--ink-3));color:#fff}
+  .cta .wrap{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+  .cta h2{font-size:clamp(2rem,4vw,2.9rem);color:#fff;margin:.5em 0 .5em}
+  .cta .lede{color:#C4D3D0;font-size:1.1rem;margin-bottom:1.6rem}
+  .cta-points{display:flex;flex-direction:column;gap:12px}
+  .cta-points li{display:flex;gap:10px;align-items:center;color:#DDE7E5;font-size:.98rem;list-style:none}
+  .cta-points svg{width:19px;height:19px;color:var(--gold);flex:none}
+  .form{background:var(--card);border-radius:var(--r-lg);padding:30px;box-shadow:var(--shadow-lg);color:var(--text)}
+  .form h3{font-size:1.3rem;margin-bottom:.3em}
+  .form>p{color:var(--muted);font-size:.92rem;margin-bottom:20px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.82rem;font-weight:600;color:var(--ink);margin-bottom:6px}
+  .field input,.field select,.field textarea{width:100%;font-family:var(--body);font-size:.95rem;color:var(--text);background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:.72em .9em;transition:border-color .18s,box-shadow .18s}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,75,.18)}
+  .field textarea{resize:vertical;min-height:70px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .form-ok{display:none;text-align:center;padding:30px 10px}
+  .form-ok .tick{width:56px;height:56px;border-radius:50%;background:var(--gold-soft);color:var(--gold-2);display:grid;place-items:center;margin:0 auto 16px}
+  .form-ok .tick svg{width:28px;height:28px}
+  .form-ok h3{margin-bottom:.4em}
+  .form-ok p{color:var(--muted);font-size:.95rem}
+  .form.sent .form-body{display:none}
+  .form.sent .form-ok{display:block}
+
+  /* ---------- footer ---------- */
+  footer{background:var(--ink-3);color:#96AAA6;padding:64px 0 30px;font-size:.9rem}
+  .foot-top{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:36px;padding-bottom:40px;border-bottom:1px solid var(--line-dk)}
+  .foot-brand .brand{color:#fff;margin-bottom:14px}
+  .foot-brand p{max-width:30ch;color:#8AA09C;font-size:.9rem}
+  .foot-brand .edit{font-family:var(--mono);font-size:.74rem;color:var(--gold);margin-top:16px;display:inline-flex;align-items:center;gap:7px}
+  .foot-col h5{color:#fff;font-family:var(--disp);font-weight:600;font-size:.95rem;margin-bottom:14px}
+  .foot-col a{display:block;color:#8AA09C;padding:5px 0;transition:color .18s}
+  .foot-col a:hover{color:var(--gold)}
+  .foot-bot{display:flex;justify-content:space-between;align-items:center;padding-top:24px;flex-wrap:wrap;gap:12px;color:#6E8480;font-size:.82rem}
+
+  /* ---------- reveal ---------- */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.dash{transform:none}}
+
+  /* ---------- responsive ---------- */
+  @media (max-width:940px){
+    .hero .wrap{grid-template-columns:1fr;gap:44px;padding-top:56px;padding-bottom:64px}
+    .dash{max-width:420px}
+    .conf .wrap,.cta .wrap{grid-template-columns:1fr;gap:36px}
+    .foot-top{grid-template-columns:1fr 1fr;gap:28px}
+    .feat-grid,.constat-grid,.svc-grid,.tiers{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:720px){
+    .nav-links,.nav-cta{display:none}
+    .menu-btn{display:block}
+    .nav.open .nav-links{display:flex;position:absolute;top:72px;left:0;right:0;flex-direction:column;background:var(--paper);border-bottom:1px solid var(--line);padding:18px 24px;gap:8px;box-shadow:var(--shadow)}
+    .nav.open .nav-links a{padding:10px 0;border-bottom:1px solid var(--line)}
+    .nav.open .mobile-cta{display:block;text-align:center;background:var(--gold);color:var(--ink-3);font-weight:600;border:none;border-radius:10px;padding:13px;margin-top:10px}
+    .section{padding:70px 0}
+    .feat-grid,.constat-grid,.svc-grid,.tiers,.conf-list,.grid-2{grid-template-columns:1fr}
+    .foot-top{grid-template-columns:1fr 1fr}
+    .tier.pop{order:-1}
+    .section-head{margin-bottom:38px}
+  }
+  @media (max-width:440px){.foot-top{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header id="top">
+  <div class="wrap">
+    <nav class="nav" id="nav">
+      <a href="#top" class="brand" aria-label="Djoliba, accueil">
+        <svg class="logo" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <rect width="34" height="34" rx="9" fill="#10302E"/>
+          <path d="M8 22c3.5 0 3.5-9 7-9s3.5 9 7 9 4-6 4-6" stroke="#C9A24B" stroke-width="2.4" stroke-linecap="round"/>
+          <circle cx="8" cy="22" r="2.1" fill="#C9A24B"/>
+        </svg>
+        Djoliba
+      </a>
+      <div class="nav-links">
+        <a href="#fonctionnalites">Fonctionnalités</a>
+        <a href="#tarifs">Tarifs</a>
+        <a href="#comparatif">Comparatif</a>
+        <a href="#services">Services</a>
+        <a href="#faq">FAQ</a>
+        <a href="#demo" class="mobile-cta">Demander une démo</a>
+      </div>
+      <div class="nav-cta">
+        <a href="djoliba-app.html#/login" class="login">Connexion</a>
+        <a href="#demo" class="btn btn-primary">Demander une démo</a>
+      </div>
+      <button class="menu-btn" id="menuBtn" aria-label="Ouvrir le menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="hero on-dark">
+  <div class="wrap">
+    <div class="hero-copy">
+      <span class="eyebrow">Logiciel de gestion hôtelière · Guinée</span>
+      <h1>Pilotez les finances de votre hôtel, <em>en francs guinéens.</em></h1>
+      <p class="lede">Djoliba réunit vos recettes, vos dépenses et votre trésorerie dans un seul tableau de bord — connecté au mobile money, prêt pour vos déclarations fiscales.</p>
+      <div class="hero-actions">
+        <a href="#demo" class="btn btn-primary">Demander une démo
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a href="#tarifs" class="btn btn-ghost">Voir les tarifs</a>
+      </div>
+      <div class="trust">
+        <span>100 % en GNF</span><span class="dot"></span>
+        <span>Orange Money &amp; MTN MoMo</span><span class="dot"></span>
+        <span>Conforme DGI / CNSS</span>
+      </div>
+    </div>
+
+    <!-- signature: tableau de bord reconstruit -->
+    <div class="dash reveal" aria-label="Aperçu du tableau de bord Djoliba">
+      <div class="dash-top">
+        <div class="dash-hotel">
+          <div class="av">K</div>
+          <div><b>Hôtel Kaloum Bay</b><span>Conakry · 42 chambres</span></div>
+        </div>
+        <span class="dash-tag">Juin 2026</span>
+      </div>
+      <div class="dash-hero-fig">
+        <div class="lbl"><span>Trésorerie nette</span><span class="badge">▲ 12 %</span></div>
+        <div class="val">84 250 000 <small>GNF</small></div>
+      </div>
+      <div class="dash-split">
+        <div class="c"><div class="k"><i style="background:var(--ok)"></i>Recettes du mois</div><div class="v">128 400 000</div></div>
+        <div class="c"><div class="k"><i style="background:var(--gold)"></i>Dépenses du mois</div><div class="v">71 900 000</div></div>
+      </div>
+      <div class="dash-chart" aria-hidden="true">
+        <div class="bar" style="height:38%"></div>
+        <div class="bar" style="height:52%"></div>
+        <div class="bar" style="height:46%"></div>
+        <div class="bar" style="height:64%"></div>
+        <div class="bar" style="height:58%"></div>
+        <div class="bar g" style="height:80%"></div>
+      </div>
+      <div class="dash-foot">
+        <span class="chip mm"><span class="live"></span>Orange Money</span>
+        <span class="chip mm2">MTN MoMo</span>
+        <span class="chip">Export TVA prêt</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONSTAT ===== -->
+<section class="section constat">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Le constat</span>
+      <h2>La gestion au cahier ne tient plus.</h2>
+      <p>La plupart des hôtels guinéens pilotent leurs finances à vue. Trois problèmes reviennent partout.</p>
+    </div>
+    <div class="constat-grid">
+      <div class="item reveal"><div class="n">01</div><h3>Des chiffres dispersés</h3><p>Cahiers, reçus et fichiers Excel séparés : personne ne connaît la trésorerie réelle à un instant donné.</p></div>
+      <div class="item reveal"><div class="n">02</div><h3>La TVA vous rattrape</h3><p>Dès dix chambres, votre hôtel est assujetti à la TVA de plein droit. Sans états fiables, la déclaration devient un risque.</p></div>
+      <div class="item reveal"><div class="n">03</div><h3>Aucune anticipation</h3><p>Impossible de préparer la basse saison ou un investissement quand on ne voit pas les mois à venir.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FONCTIONNALITÉS ===== -->
+<section class="section" id="fonctionnalites">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Ce que fait Djoliba</span>
+      <h2>Tout votre argent, dans une seule vue.</h2>
+      <p>Six outils pensés pour la réalité d'un hôtel guinéen — pas un logiciel étranger qu'on adapte de force.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3zM3 7l2-3h14l2 3M16 13h2"/></svg></div>
+        <h3>Dépenses &amp; recettes</h3>
+        <p>Chaque entrée et chaque sortie, catégorisée et à jour, en francs guinéens.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8M21 4v5h-5"/></svg></div>
+        <h3>Trésorerie en temps réel</h3>
+        <p>Sachez à tout moment ce que vous avez en caisse et ce qui arrive dans les jours à venir.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div>
+        <h3>Budgétisation prévisionnelle</h3>
+        <p>Projetez vos prochains mois, repérez les creux de saison et décidez avant qu'ils n'arrivent.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
+        <h3>Mobile money intégré</h3>
+        <p>Rapprochez automatiquement vos encaissements Orange Money et MTN MoMo avec vos comptes.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6zM15 2v5h5M9 13h6M9 17h6"/></svg></div>
+        <h3>Exports fiscaux conformes</h3>
+        <p>TVA, RTS, impôt sur les sociétés : des états prêts à déposer, alignés sur le cadre de la DGI et de la CNSS.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V7l6-4v18M9 21V11l6-4v14M21 21V9l-6-2M3 21h18M7 8v0M7 12v0M13 12v0"/></svg></div>
+        <h3>Multi-établissements</h3>
+        <p>Consolidez plusieurs hôtels dans un tableau de bord unique et comparez-les entre eux.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TARIFS ===== -->
+<section class="section pricing" id="tarifs">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow" style="justify-content:center">Abonnements</span>
+      <h2>Un abonnement à la hauteur de votre hôtel.</h2>
+      <p>Trois formules claires. Toutes les fonctionnalités, sans mauvaise surprise.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center">
+      <div class="toggle" role="tablist" aria-label="Choisir la période de facturation">
+        <button class="active" data-cycle="month" role="tab" aria-selected="true">Mensuel</button>
+        <button data-cycle="year" role="tab" aria-selected="false">Annuel <span class="save">2 mois offerts</span></button>
+      </div>
+      <p class="toggle-note">Passez à l'annuel : vous payez dix mois, vous en utilisez douze.</p>
+    </div>
+
+    <div class="tiers">
+      <!-- Essentiel -->
+      <div class="tier reveal">
+        <div class="name">Essentiel</div>
+        <p class="who">Pour un établissement qui veut enfin sortir du cahier et d'Excel.</p>
+        <div class="tier-price"><span class="amount" data-monthly="500000"></span><span class="period">/ mois</span></div>
+        <p class="tier-billing"></p>
+        <a href="djoliba-app.html#/app/dashboard?plan=essentiel" class="btn btn-ghost btn-block">Essayer Essentiel</a>
+        <ul>
+          <li class="head">Ce qui est inclus</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>1 établissement</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Suivi des dépenses et recettes</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Trésorerie en temps réel</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Tableau de bord en GNF</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Rapports mensuels</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Support par email</li>
+        </ul>
+      </div>
+      <!-- Pro -->
+      <div class="tier pop reveal">
+        <div class="name">Pro</div>
+        <p class="who">Pour piloter, anticiper et rester conforme sans y passer ses nuits.</p>
+        <div class="tier-price"><span class="amount" data-monthly="1000000"></span><span class="period">/ mois</span></div>
+        <p class="tier-billing"></p>
+        <a href="djoliba-app.html#/app/dashboard?plan=pro" class="btn btn-primary btn-block">Essayer Pro</a>
+        <ul>
+          <li class="head">Tout Essentiel, plus</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Budgétisation prévisionnelle</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Intégration Orange Money &amp; MTN MoMo</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Exports fiscaux TVA &amp; RTS</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Prévisions de trésorerie</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-utilisateurs &amp; rôles</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Support prioritaire</li>
+        </ul>
+      </div>
+      <!-- Groupe -->
+      <div class="tier reveal">
+        <div class="name">Groupe</div>
+        <p class="who">Pour les chaînes et groupes qui gèrent plusieurs établissements.</p>
+        <div class="tier-price"><span class="amount" data-monthly="2000000"></span><span class="period">/ mois</span></div>
+        <p class="tier-billing"></p>
+        <a href="djoliba-app.html#/app/dashboard?plan=groupe" class="btn btn-ghost btn-block">Essayer Groupe</a>
+        <ul>
+          <li class="head">Tout Pro, plus</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Établissements illimités</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Consolidation du groupe</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Comparaison inter-établissements</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Accompagnement dédié</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Formation incluse</li>
+        </ul>
+      </div>
+    </div>
+    <p class="price-foot"><b>Tarifs hors taxes</b>, en GNF. La TVA (18 %) s'applique selon votre régime fiscal. Sans engagement sur la formule mensuelle.</p>
+  </div>
+</section>
+
+<!-- ===== COMPARATIF ===== -->
+<section class="section" id="comparatif">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Le détail</span>
+      <h2>Chaque fonctionnalité, par abonnement.</h2>
+      <p>La vue complète, sans zone d'ombre — pour choisir en connaissance de cause.</p>
+    </div>
+    <div class="cmp-wrap reveal">
+      <table class="cmp">
+        <thead><tr><th>Fonctionnalité</th><th>Essentiel</th><th>Pro</th><th>Groupe</th></tr></thead>
+        <tbody>
+          <tr class="cat"><th colspan="4">Gestion courante</th></tr>
+          <tr><th>Dépenses &amp; recettes</th><td class="y"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Trésorerie en temps réel</th><td class="y"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Tableau de bord en GNF</th><td class="y"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Rapports mensuels</th><td class="y"></td><td class="y"></td><td class="y"></td></tr>
+          <tr class="cat"><th colspan="4">Pilotage &amp; prévision</th></tr>
+          <tr><th>Budgétisation prévisionnelle</th><td class="n"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Prévisions de trésorerie</th><td class="n"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Comparaison inter-établissements</th><td class="n"></td><td class="n"></td><td class="y"></td></tr>
+          <tr class="cat"><th colspan="4">Paiements &amp; fiscalité</th></tr>
+          <tr><th>Intégration mobile money</th><td class="n"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Exports TVA &amp; RTS</th><td class="n"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Export impôt sur les sociétés</th><td class="n"></td><td class="y"></td><td class="y"></td></tr>
+          <tr class="cat"><th colspan="4">Établissements &amp; équipe</th></tr>
+          <tr><th>Nombre d'établissements</th><td class="v">1</td><td class="v">1</td><td class="v">Illimité</td></tr>
+          <tr><th>Multi-utilisateurs &amp; rôles</th><td class="n"></td><td class="y"></td><td class="y"></td></tr>
+          <tr><th>Consolidation du groupe</th><td class="n"></td><td class="n"></td><td class="y"></td></tr>
+          <tr class="cat"><th colspan="4">Accompagnement</th></tr>
+          <tr><th>Support</th><td class="v">Email</td><td class="v">Prioritaire</td><td class="v">Dédié</td></tr>
+          <tr><th>Onboarding</th><td class="v">Option</td><td class="v">Option</td><td class="v">Inclus</td></tr>
+          <tr><th>Formation</th><td class="v">Option</td><td class="v">Option</td><td class="v">Incluse</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SERVICES ===== -->
+<section class="section pricing" id="services">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Services d'accompagnement</span>
+      <h2>On ne vous laisse pas seul avec le logiciel.</h2>
+      <p>Des prestations ponctuelles, en plus de l'abonnement, pour démarrer vite et bien.</p>
+    </div>
+    <div class="svc-grid">
+      <div class="svc reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Mise en route &amp; reprise d'historique</h3>
+        <p>Nous paramétrons Djoliba pour votre hôtel et importons votre historique existant, pour partir sur des bases justes dès le premier jour.</p>
+        <div class="cost"><b class="mono">2 500 000 GNF</b><span>Prestation unique, à la mise en service</span></div>
+      </div>
+      <div class="svc reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M7 10v5c0 1 2.5 3 5 3s5-2 5-3v-5"/></svg></div>
+        <h3>Formation des équipes</h3>
+        <p>Une session pour vos gérants et comptables : prise en main complète de l'outil, des exports fiscaux et de la lecture des tableaux de bord.</p>
+        <div class="cost"><b class="mono">1 500 000 GNF</b><span>Par session de formation</span></div>
+      </div>
+      <div class="svc reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg></div>
+        <h3>Accompagnement au pilotage</h3>
+        <p>Un expert vous aide à lire vos chiffres, construire votre prévisionnel et prendre les bonnes décisions — au forfait, selon vos besoins.</p>
+        <div class="cost"><b class="mono">Sur devis</b><span>Forfait d'accompagnement</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONFORMITÉ ===== -->
+<section class="section conf on-dark">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">Conçu pour la Guinée</span>
+      <h2>Pensé pour votre cadre, pas importé d'ailleurs.</h2>
+      <p class="lede">Djoliba est un logiciel de gestion — pas un service de paiement. Vos fonds ne transitent jamais par nous : vous gardez le contrôle, et la conformité reste simple.</p>
+    </div>
+    <div class="conf-list">
+      <div class="conf-item reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-5"/></svg></div>
+        <h4>100 % en francs guinéens</h4>
+        <p>Aucune conversion, aucun taux à surveiller. Tout est nativement en GNF, comme votre comptabilité.</p>
+      </div>
+      <div class="conf-item reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div>
+        <h4>Vos fonds restent chez vous</h4>
+        <p>Nous n'encaissons ni ne détenons votre argent. Djoliba lit et organise vos flux, il ne les manipule pas.</p>
+      </div>
+      <div class="conf-item reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6zM15 2v5h5"/></svg></div>
+        <h4>Aligné DGI &amp; CNSS</h4>
+        <p>Les exports suivent le cadre fiscal guinéen en vigueur : TVA, RTS et impôt sur les sociétés, prêts à déposer.</p>
+      </div>
+      <div class="conf-item reveal">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7v10a8 4 0 0016 0V7"/><path d="M4 7a8 4 0 0116 0 8 4 0 01-16 0z"/></svg></div>
+        <h4>Données sauvegardées</h4>
+        <p>Vos données sont chiffrées et sauvegardées quotidiennement. Vous les exportez quand vous voulez, elles vous appartiennent.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="eyebrow" style="justify-content:center">Questions fréquentes</span>
+      <h2>Ce qu'on nous demande le plus.</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">Faut-il un agrément de la BCRG pour utiliser Djoliba ?</button>
+        <div class="faq-a"><p>Non. Djoliba est un logiciel de gestion, pas un service de paiement : vos fonds ne transitent jamais par la plateforme. Vous n'avez donc aucun agrément de la Banque Centrale à obtenir pour l'utiliser.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">Peut-on importer notre historique depuis Excel ?</button>
+        <div class="faq-a"><p>Oui. La prestation de mise en route inclut l'import de votre historique existant — fichiers Excel, relevés ou cahiers retranscrits — pour que vous démarriez avec des données déjà en place.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">Djoliba fonctionne-t-il avec Orange Money et MTN MoMo ?</button>
+        <div class="faq-a"><p>Oui, à partir de la formule Pro. Vos encaissements mobile money sont rapprochés automatiquement de vos comptes, ce qui supprime la double saisie et les écarts de caisse.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">Les tarifs affichés incluent-ils la TVA ?</button>
+        <div class="faq-a"><p>Les prix sont indiqués hors taxes. La TVA au taux de 18 % s'ajoute selon votre régime fiscal. Notre équipe précise le montant exact au moment du devis.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">Puis-je gérer plusieurs hôtels avec un seul compte ?</button>
+        <div class="faq-a"><p>Oui, avec la formule Groupe : établissements illimités, tableau de bord consolidé et comparaison entre vos hôtels dans une seule vue.</p></div>
+      </div>
+      <div class="faq-item reveal">
+        <button class="faq-q" aria-expanded="false">Combien de temps pour être opérationnel ?</button>
+        <div class="faq-a"><p>Comptez quelques jours. Après la mise en route et l'import de votre historique, vos équipes suivent une session de formation et prennent la main immédiatement.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA + FORM ===== -->
+<section class="section cta on-dark" id="demo">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">Demander une démo</span>
+      <h2>Voyez vos propres chiffres dans Djoliba.</h2>
+      <p class="lede">Une démonstration de 30 minutes, avec un exemple bâti sur la réalité de votre hôtel. Sans engagement.</p>
+      <ul class="cta-points">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Adaptée à votre nombre de chambres et à votre saisonnalité</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Réponse sous 48 heures ouvrées</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>En français, par une équipe basée à Conakry</li>
+      </ul>
+    </div>
+
+    <div class="form" id="demoForm">
+      <div class="form-body">
+        <h3>Réservez votre démo</h3>
+        <p>Remplissez ce formulaire, nous vous recontactons.</p>
+        <div class="grid-2">
+          <div class="field"><label for="f-nom">Nom complet</label><input id="f-nom" type="text" placeholder="Votre nom" required></div>
+          <div class="field"><label for="f-hotel">Hôtel</label><input id="f-hotel" type="text" placeholder="Nom de l'établissement" required></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label for="f-ville">Ville</label><input id="f-ville" type="text" placeholder="Conakry, Kindia…"></div>
+          <div class="field"><label for="f-tel">Téléphone</label><input id="f-tel" type="tel" placeholder="+224 …"></div>
+        </div>
+        <div class="field"><label for="f-mail">Email</label><input id="f-mail" type="email" placeholder="vous@hotel.gn" required></div>
+        <div class="field"><label for="f-plan">Abonnement qui vous intéresse</label>
+          <select id="f-plan"><option>Je ne sais pas encore</option><option>Essentiel</option><option>Pro</option><option>Groupe</option></select>
+        </div>
+        <div class="field"><label for="f-msg">Message (facultatif)</label><textarea id="f-msg" placeholder="Nombre de chambres, besoins particuliers…"></textarea></div>
+        <button class="btn btn-primary btn-block" id="submitBtn">Envoyer ma demande</button>
+      </div>
+      <div class="form-ok">
+        <div class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h3>Demande envoyée</h3>
+        <p>Merci. Notre équipe vous recontacte sous 48 heures ouvrées pour organiser votre démonstration.</p>
+        <a href="djoliba-app.html#/app/dashboard?plan=pro" class="btn btn-primary" style="margin-top:6px">Explorer l'application maintenant</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <div class="brand">
+          <svg class="logo" viewBox="0 0 34 34" fill="none" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#17403C"/><path d="M8 22c3.5 0 3.5-9 7-9s3.5 9 7 9 4-6 4-6" stroke="#C9A24B" stroke-width="2.4" stroke-linecap="round"/><circle cx="8" cy="22" r="2.1" fill="#C9A24B"/></svg>
+          Djoliba
+        </div>
+        <p>Le logiciel de gestion et de pilotage financier des hôtels guinéens.</p>
+        <span class="edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M2 12h20"/></svg>Édité en Guinée</span>
+      </div>
+      <div class="foot-col">
+        <h5>Produit</h5>
+        <a href="#fonctionnalites">Fonctionnalités</a>
+        <a href="#tarifs">Tarifs</a>
+        <a href="#comparatif">Comparatif</a>
+        <a href="#services">Services</a>
+      </div>
+      <div class="foot-col">
+        <h5>Ressources</h5>
+        <a href="#faq">FAQ</a>
+        <a href="#demo">Demander une démo</a>
+        <a href="#">Guide fiscal hôtelier</a>
+        <a href="#">Centre d'aide</a>
+      </div>
+      <div class="foot-col">
+        <h5>Contact</h5>
+        <a href="#">Conakry, Guinée</a>
+        <a href="mailto:contact@djoliba.gn">contact@djoliba.gn</a>
+        <a href="#">+224 000 00 00 00</a>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 Djoliba. Tous droits réservés.</span>
+      <span>Mentions légales · Confidentialité · CGU</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // format GNF (fr)
+  const fmt = new Intl.NumberFormat('fr-FR');
+  const gnf = n => fmt.format(n).replace(/\u202f/g,' ');
+
+  // ----- pricing toggle -----
+  const cycleBtns = document.querySelectorAll('.toggle button');
+  const amounts = document.querySelectorAll('.tier .amount');
+  const billings = document.querySelectorAll('.tier .tier-billing');
+  function renderPrices(cycle){
+    document.querySelectorAll('.tier').forEach(tier=>{
+      const m = +tier.querySelector('.amount').dataset.monthly;
+      const amtEl = tier.querySelector('.amount');
+      const billEl = tier.querySelector('.tier-billing');
+      if(cycle==='year'){
+        const perMonth = Math.round(m*10/12/1000)*1000;
+        amtEl.textContent = gnf(perMonth);
+        billEl.textContent = 'soit '+gnf(m*10)+' GNF / an';
+      }else{
+        amtEl.textContent = gnf(m);
+        billEl.textContent = 'facturé chaque mois';
+      }
+    });
+  }
+  cycleBtns.forEach(b=>b.addEventListener('click',()=>{
+    cycleBtns.forEach(x=>{x.classList.remove('active');x.setAttribute('aria-selected','false')});
+    b.classList.add('active');b.setAttribute('aria-selected','true');
+    renderPrices(b.dataset.cycle);
+  }));
+  renderPrices('month');
+
+  // ----- comparison cells (check / dash) -----
+  const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+  document.querySelectorAll('table.cmp td.y').forEach(td=>{td.classList.add('yes');td.innerHTML=CHECK;});
+  document.querySelectorAll('table.cmp td.n').forEach(td=>{td.innerHTML='<span class="dash-cell">—</span>';});
+
+  // ----- mobile nav -----
+  const nav=document.getElementById('nav'), menuBtn=document.getElementById('menuBtn');
+  menuBtn.addEventListener('click',()=>{
+    const open=nav.classList.toggle('open');
+    menuBtn.setAttribute('aria-expanded',open);
+  });
+  nav.querySelectorAll('.nav-links a').forEach(a=>a.addEventListener('click',()=>{
+    nav.classList.remove('open');menuBtn.setAttribute('aria-expanded','false');
+  }));
+
+  // ----- header shadow -----
+  const header=document.getElementById('top');
+  const onScroll=()=>header.classList.toggle('scrolled',window.scrollY>8);
+  onScroll();window.addEventListener('scroll',onScroll,{passive:true});
+
+  // ----- FAQ accordion -----
+  document.querySelectorAll('.faq-item').forEach(item=>{
+    const q=item.querySelector('.faq-q'), a=item.querySelector('.faq-a');
+    q.addEventListener('click',()=>{
+      const open=item.classList.toggle('open');
+      q.setAttribute('aria-expanded',open);
+      a.style.maxHeight=open?a.scrollHeight+'px':null;
+    });
+  });
+
+  // ----- demo form -----
+  const form=document.getElementById('demoForm');
+  document.getElementById('submitBtn').addEventListener('click',()=>{
+    const nom=document.getElementById('f-nom').value.trim();
+    const hotel=document.getElementById('f-hotel').value.trim();
+    const mail=document.getElementById('f-mail').value.trim();
+    if(!nom||!hotel||!mail){
+      [['f-nom',nom],['f-hotel',hotel],['f-mail',mail]].forEach(([id,v])=>{
+        document.getElementById(id).style.borderColor=v?'':'#C0392B';
+      });
+      return;
+    }
+    form.classList.add('sent');
+    form.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+
+  // ----- reveal on scroll -----
+  const io=new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+  },{threshold:.12,rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>

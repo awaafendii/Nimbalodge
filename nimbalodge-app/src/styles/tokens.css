@@ -1,0 +1,175 @@
+/* ============================= DESIGN TOKENS ============================= */
+:root {
+  /* -- surfaces & ink (light) -- */
+  --bg: #f6f3ec;
+  --surface: #ffffff;
+  --surface-2: #efeae0;
+  --surface-3: #f1ede2;
+  --border: #e1dccc;
+  --border-soft: #eae5d8;
+  --ink: #1a231e;
+  --ink-2: #4c5851;
+  --ink-muted: #828d84;
+
+  /* -- brand -- */
+  --accent: #146b54;
+  --accent-strong: #0e5642;
+  --accent-soft: #e3eee7;
+  --accent-ink: #0e5642;
+  --gold: #b8791c;
+  --gold-soft: #f7ecd8;
+
+  /* -- status -- */
+  --good: #2f8f52;
+  --good-soft: #e5f2e9;
+  --warning: #b8791c;
+  --warning-soft: #f7ecd8;
+  --critical: #b3402c;
+  --critical-soft: #f8e4de;
+
+  /* -- chrome (sidebar stays dark in both themes) -- */
+  --sidebar-bg: #102019;
+  --sidebar-bg-2: #0c1a14;
+  --sidebar-ink: #dce7df;
+  --sidebar-ink-muted: #7e9a8b;
+  --sidebar-border: #1d3529;
+  --sidebar-active: #173327;
+
+  /* -- elevation -- */
+  --shadow-sm: 0 1px 2px rgba(16, 32, 25, 0.06);
+  --shadow-md: 0 6px 20px rgba(16, 32, 25, 0.09);
+  --shadow-lg: 0 16px 40px rgba(16, 32, 25, 0.16);
+
+  /* -- radius -- */
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 18px;
+
+  /* -- typography system --
+     Titre            → Manrope 700/800
+     Sous-titre        → Inter 500/600
+     Texte             → Inter 400
+     Boutons           → Inter 600
+     Petites informations → Inter 400/500
+  */
+  --font-title: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --fw-title-strong: 800;
+  --fw-title: 700;
+  --fw-subtitle-strong: 600;
+  --fw-subtitle: 500;
+  --fw-text: 400;
+  --fw-button: 600;
+  --fw-small-strong: 500;
+  --fw-small: 400;
+
+  /* -- chart categorical ramp (validated: lightness/chroma/CVD pass) -- */
+  --chart-1: #0e8a67;
+  --chart-2: #b8791c;
+  --chart-3: #2274a5;
+  --chart-4: #9c4a2e;
+  --chart-5: #7a4fb0;
+  --chart-6: #7c8a2e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101b16;
+    --surface: #16241d;
+    --surface-2: #1d2f26;
+    --surface-3: #1a2a22;
+    --border: #2a3d33;
+    --border-soft: #233830;
+    --ink: #eef3ef;
+    --ink-2: #bfccc4;
+    --ink-muted: #7e9088;
+    --accent: #3fcba0;
+    --accent-strong: #2a9a7b;
+    --accent-soft: #1b3a2e;
+    --accent-ink: #8de8c9;
+    --gold: #e0a94a;
+    --gold-soft: #3a2c16;
+    --good: #4cae68;
+    --good-soft: #173324;
+    --warning: #e0a94a;
+    --warning-soft: #3a2c16;
+    --critical: #e2705a;
+    --critical-soft: #3b211c;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --chart-1: #2a9a7b;
+    --chart-2: #bc8228;
+    --chart-3: #3f86b4;
+    --chart-4: #b2653c;
+    --chart-5: #9975c2;
+    --chart-6: #86a044;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #101b16;
+  --surface: #16241d;
+  --surface-2: #1d2f26;
+  --surface-3: #1a2a22;
+  --border: #2a3d33;
+  --border-soft: #233830;
+  --ink: #eef3ef;
+  --ink-2: #bfccc4;
+  --ink-muted: #7e9088;
+  --accent: #3fcba0;
+  --accent-strong: #2a9a7b;
+  --accent-soft: #1b3a2e;
+  --accent-ink: #8de8c9;
+  --gold: #e0a94a;
+  --gold-soft: #3a2c16;
+  --good: #4cae68;
+  --good-soft: #173324;
+  --warning: #e0a94a;
+  --warning-soft: #3a2c16;
+  --critical: #e2705a;
+  --critical-soft: #3b211c;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --chart-1: #2a9a7b;
+  --chart-2: #bc8228;
+  --chart-3: #3f86b4;
+  --chart-4: #b2653c;
+  --chart-5: #9975c2;
+  --chart-6: #86a044;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f3ec;
+  --surface: #ffffff;
+  --surface-2: #efeae0;
+  --surface-3: #f1ede2;
+  --border: #e1dccc;
+  --border-soft: #eae5d8;
+  --ink: #1a231e;
+  --ink-2: #4c5851;
+  --ink-muted: #828d84;
+  --accent: #146b54;
+  --accent-strong: #0e5642;
+  --accent-soft: #e3eee7;
+  --accent-ink: #0e5642;
+  --gold: #b8791c;
+  --gold-soft: #f7ecd8;
+  --good: #2f8f52;
+  --good-soft: #e5f2e9;
+  --warning: #b8791c;
+  --warning-soft: #f7ecd8;
+  --critical: #b3402c;
+  --critical-soft: #f8e4de;
+  --shadow-sm: 0 1px 2px rgba(16, 32, 25, 0.06);
+  --shadow-md: 0 6px 20px rgba(16, 32, 25, 0.09);
+  --shadow-lg: 0 16px 40px rgba(16, 32, 25, 0.16);
+  --chart-1: #0e8a67;
+  --chart-2: #b8791c;
+  --chart-3: #2274a5;
+  --chart-4: #9c4a2e;
+  --chart-5: #7a4fb0;
+  --chart-6: #7c8a2e;
+}

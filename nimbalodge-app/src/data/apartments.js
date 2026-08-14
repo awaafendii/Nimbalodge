@@ -1,0 +1,15 @@
+export const APARTMENTS = [
+  { id: "1A", type: "short", tenant: "Mme Bah", status: "good", info: "Séjour en cours · sortie 18/08" },
+  { id: "1B", type: "short", tenant: "Aly (libanais)", status: "good", info: "Séjour en cours · sortie 19/08" },
+  { id: "1C", type: "short", tenant: "TGCC Guinée", status: "good", info: "Séjour en cours · sortie 19/08" },
+  { id: "1D", type: "short", tenant: "Vacant", status: "vacant", info: "Disponible depuis le 05/08" },
+  { id: "2A", type: "long", tenant: "SOGEA SATOM Guinée", status: "good", info: "Bail à jour · échéance 15/09/26" },
+  { id: "2B", type: "long", tenant: "M. Diallo Youssouf Alseny", status: "good", info: "Bail à jour · échéance 01/09/26" },
+  { id: "3A", type: "long", tenant: "Fox Cooling SARL", status: "warn", info: "Relance envoyée · échéance 01/08/26" },
+  { id: "3B", type: "long", tenant: "TGCC Guinée S.A.U", status: "good", info: "Bail à jour · échéance 14/09/26" },
+  { id: "4A", type: "long", tenant: "Fox Cooling SARL", status: "crit", info: "Loyer en retard depuis le 01/07/26" },
+  { id: "4B", type: "long", tenant: "M. Kamano", status: "crit", info: "Loyer impayé · à relancer" },
+  { id: "5A", type: "long", tenant: "MJR-Construction", status: "good", info: "Bail à jour · échéance 01/09/26" },
+  { id: "5B", type: "long", tenant: "Fox Cooling SARL", status: "crit", info: "Loyer en retard depuis le 01/07/26" },
+  { id: "6-7", type: "long", tenant: "M. Barry Thierno Souleymane", status: "good", info: "Penthouse semi-meublé · payé en USD" },
+];

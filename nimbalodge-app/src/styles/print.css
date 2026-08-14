@@ -1,0 +1,25 @@
+@media print {
+  .no-print,
+  .sidebar,
+  .topbar,
+  .scrim,
+  .toast,
+  .drawer,
+  .drawer-scrim {
+    display: none !important;
+  }
+  .shell {
+    display: block;
+  }
+  .view-wrap {
+    padding: 0;
+    max-width: none;
+  }
+  body {
+    background: #fff;
+  }
+  .report-sheet {
+    border: 0;
+    box-shadow: none;
+  }
+}
