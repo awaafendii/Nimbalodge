@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-ssr/
 .turbo/
+*.tsbuildinfo
 *.local
 .DS_Store
 *.log

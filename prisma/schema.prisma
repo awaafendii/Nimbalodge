@@ -1,0 +1,25 @@
+// NimbaLodge — schéma Prisma.
+//
+// Phase 2 : socle d'infrastructure uniquement — zéro modèle métier.
+// Organizations/Hotels/Departments/Activities/CostCenters arrivent en Phase 4.
+// Users/Roles/Permissions arrivent en Phase 3.
+// Cette première migration (vide) prouve seulement que le pipeline
+// Postgres -> Prisma -> NestJS fonctionne de bout en bout.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma exige au moins un modèle pour générer un client (sinon `prisma generate` échoue).
+// Ce modèle est purement technique — aucune signification métier — et sert uniquement à
+// prouver que le pipeline Postgres -> Prisma -> migrations fonctionne de bout en bout.
+// À supprimer dès que la Phase 4 introduit les premiers modèles métier réels.
+model SchemaBootstrap {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+}

@@ -2,7 +2,7 @@
   "name": "nimbalodge-monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "NimbaLodge ERP — monorepo (apps/web, packages/ui, packages/utils). Le prototype legacy nimbalodge-app/ reste hors workspaces.",
+  "description": "NimbaLodge ERP — monorepo (apps/web, apps/api, packages/ui, packages/utils). Le prototype legacy nimbalodge-app/ reste hors workspaces.",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,6 +11,18 @@
     "dev:web": "npm run dev -w @nimbalodge/web",
     "build:web": "npm run build -w @nimbalodge/web",
     "build:ui": "npm run build -w @nimbalodge/ui --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "dev:api": "dotenv -e .env -- npm run dev -w @nimbalodge/api",
+    "build:api": "npm run build -w @nimbalodge/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=prisma/schema.prisma",
+    "db:push": "prisma db push --schema=prisma/schema.prisma",
+    "db:studio": "prisma studio --schema=prisma/schema.prisma",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.2",
+    "prisma": "^5.19.1"
   }
 }
