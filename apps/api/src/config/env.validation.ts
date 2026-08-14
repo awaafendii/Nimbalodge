@@ -19,6 +19,18 @@ class EnvironmentVariables {
 
   @IsNotEmpty()
   CORS_ORIGIN!: string;
+
+  @IsNotEmpty()
+  JWT_ACCESS_SECRET!: string;
+
+  @IsNotEmpty()
+  JWT_REFRESH_SECRET!: string;
+
+  @IsNotEmpty()
+  JWT_ACCESS_EXPIRES_IN: string = "15m";
+
+  @IsNotEmpty()
+  JWT_REFRESH_EXPIRES_IN: string = "7d";
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

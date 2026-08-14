@@ -1,10 +1,12 @@
 // NimbaLodge — schéma Prisma.
 //
-// Phase 2 : socle d'infrastructure uniquement — zéro modèle métier.
-// Organizations/Hotels/Departments/Activities/CostCenters arrivent en Phase 4.
-// Users/Roles/Permissions arrivent en Phase 3.
-// Cette première migration (vide) prouve seulement que le pipeline
-// Postgres -> Prisma -> NestJS fonctionne de bout en bout.
+// Phase 3 : Auth + utilisateurs + rôles + permissions + isolation hôtel.
+// `Organization`/`Hotel` sont volontairement minimaux ici (juste de quoi ancrer une FK et
+// démontrer l'isolation par hôtel) — la configuration complète (départements, activités,
+// centres de coûts, CRUD dédié) arrive en Phase 4, qui enrichira ces mêmes tables.
+//
+// `SchemaBootstrap` (créé en Phase 2 uniquement parce que Prisma refuse un schéma à zéro
+// modèle) est supprimé ici : son rôle devient obsolète dès que de vrais modèles existent.
 
 datasource db {
   provider = "postgresql"
@@ -15,11 +17,125 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Prisma exige au moins un modèle pour générer un client (sinon `prisma generate` échoue).
-// Ce modèle est purement technique — aucune signification métier — et sert uniquement à
-// prouver que le pipeline Postgres -> Prisma -> migrations fonctionne de bout en bout.
-// À supprimer dès que la Phase 4 introduit les premiers modèles métier réels.
-model SchemaBootstrap {
-  id        Int      @id @default(autoincrement())
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotels Hotel[]
+  users  User[]
+  roles  Role[]
+}
+
+/// Minimal — pas de configuration (§4 du brief), arrive en Phase 4. Sert uniquement d'ancrage
+/// pour l'isolation par hôtel des utilisateurs.
+model Hotel {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users        User[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+model User {
+  id       String  @id @default(cuid())
+  email    String  @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  isActive     Boolean @default(true)
+
+  organizationId String
+  hotelId        String?
+
+  /// 2FA préparé (brief §41) — colonnes prêtes, aucun flow TOTP implémenté cette phase.
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  hotel         Hotel?         @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+
+  @@index([organizationId])
+  @@index([hotelId])
+}
+
+/// `organizationId` null = rôle système global (ex. SUPER_ADMIN, seedé une fois).
+/// `organizationId` renseigné = rôle personnalisé propre à une organisation (§28 : "les rôles
+/// doivent être personnalisables"). Le scope hôtel vs organisation n'est PAS porté ici — il vient
+/// de `User.hotelId` (séparation ROLE/SCOPE, §29).
+model Role {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  organizationId String?
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions  RolePermission[]
+  users        UserRole[]
+
+  @@unique([organizationId, name])
+}
+
+/// Clé au format `domaine.ressource.action` (ex. "finance.expense.create", "users.view") — §30.
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  assignedAt   DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+/// `id` = jti du JWT de refresh. `tokenHash` = SHA-256 du JWT brut (jamais stocké en clair) —
+/// rend le refresh révocable (logout réel, rotation à chaque refresh), pas purement stateless.
+model RefreshToken {
+  id        String    @id
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
