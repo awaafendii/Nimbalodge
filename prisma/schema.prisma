@@ -1,12 +1,36 @@
 // NimbaLodge — schéma Prisma.
 //
-// Phase 3 : Auth + utilisateurs + rôles + permissions + isolation hôtel.
-// `Organization`/`Hotel` sont volontairement minimaux ici (juste de quoi ancrer une FK et
-// démontrer l'isolation par hôtel) — la configuration complète (départements, activités,
-// centres de coûts, CRUD dédié) arrive en Phase 4, qui enrichira ces mêmes tables.
+// Phase 6 : Facturation + paiements. Invoice/InvoiceLine/Payment/CreditNote réutilisent les
+// mécanismes de Phase 5 (CashAccount/BankAccount, transactions postées atomiquement au bon
+// moment, montants Decimal, totaux calculés à la demande). Voir docs/architecture/phase-6-billing.md.
 //
-// `SchemaBootstrap` (créé en Phase 2 uniquement parce que Prisma refuse un schéma à zéro
-// modèle) est supprimé ici : son rôle devient obsolète dès que de vrais modèles existent.
+// Phase 7 : Réservations + chambres + clients + séjours. RoomType/Room/Guest/Reservation ;
+// Invoice.guestId/reservationId ajoutés en complément des champs client texte libre (ne les
+// remplacent pas). Voir docs/architecture/phase-7-reservations.md.
+//
+// Phase 8 : RH + planning + présence + congés + paie. Employee/WorkSchedule/Attendance/
+// LeaveRequest/Payslip. Payslip.markPaid() poste une Expense + CashTransaction/BankTransaction,
+// même mécanisme qu'ExpensesService.markPaid (Phase 5). Voir docs/architecture/phase-8-hr-payroll.md.
+//
+// Phase 9 : Achats. Supplier (le vrai modèle annoncé en Phase 5, remplaçant Expense.vendorName en
+// texte libre) / PurchaseRequest (demande+validation) / PurchaseOrder+PurchaseOrderLine (bon de
+// commande) / GoodsReceipt+GoodsReceiptLine (réception). "Facture fournisseur"+"paiement" ne sont
+// PAS de nouveaux modèles : Expense.supplierId/purchaseOrderId (additifs, complètent vendorName)
+// réutilisent le workflow DRAFT→PENDING→APPROVED→PAID→BOOKED existant (Phase 5) — même principe
+// que Payslip (Phase 8), et cohérent avec la consigne explicite de ne pas recréer un modèle Dettes
+// (Phase 6). Voir docs/architecture/phase-9-purchases.md.
+//
+// Phase 10 : Ménage + Maintenance. HousekeepingTask (§25 — dashboard chambres à nettoyer/propres/
+// inspectées, statut jamais dénormalisé sur Room, même principe que la disponibilité calculée
+// depuis Reservation, Phase 7) / Asset+MaintenanceRequest+MaintenanceIntervention (§26 —
+// équipements, demandes, interventions préventives/correctives). Voir
+// docs/architecture/phase-10-housekeeping-maintenance.md.
+//
+// Phase 12 : Notifications + audit trail. Notification (§35, in-app ; relatedType/relatedId pour
+// dédupliquer les alertes, ex. dépassement budgétaire — BudgetsService.checkOverspendAlerts()) /
+// AuditLog (§37, écrit par un AuditInterceptor global — organizationId/hotelId/userId en champs
+// LIBRES, sans FK, pour survivre à la suppression future de ce qu'ils référencent). Voir
+// docs/architecture/phase-12-notifications-audit.md.
 
 datasource db {
   provider = "postgresql"
@@ -29,21 +53,156 @@ model Organization {
   roles  Role[]
 }
 
-/// Minimal — pas de configuration (§4 du brief), arrive en Phase 4. Sert uniquement d'ancrage
-/// pour l'isolation par hôtel des utilisateurs.
+/// Identité/coordonnées (§4 INFORMATIONS). Volontairement sans `currency`/`roomsCount` — le
+/// premier appartient à la section FINANCE (Phase 5/6), le second reste absent : `Room` (Phase 7)
+/// est la seule source de vérité, comptée à la volée (`COUNT(*)`), jamais dénormalisée ici. Pas de
+/// config FINANCE ni de modules activables ici (voir
+/// docs/architecture/phase-4-organization-hotels-departments.md).
 model Hotel {
   id             String   @id @default(cuid())
   organizationId String
   name           String
   slug           String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  users        User[]
+  address   String?
+  phone     String?
+  email     String?
+  website   String?
+  category  String?
+  timezone  String?
+  languages String[] @default([])
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users               User[]
+  departments          Department[]
+  costCenters           CostCenter[]
+  financialCategories    FinancialCategory[]
+  cashAccounts            CashAccount[]
+  bankAccounts             BankAccount[]
+  revenues                  Revenue[]
+  expenses                   Expense[]
+  budgets                     Budget[]
+  invoices                      Invoice[]
+  roomTypes                      RoomType[]
+  rooms                            Room[]
+  guests                             Guest[]
+  reservations                        Reservation[]
+  employees                             Employee[]
+  workSchedules                           WorkSchedule[]
+  attendances                               Attendance[]
+  leaveRequests                               LeaveRequest[]
+  payslips                                      Payslip[]
+  suppliers                                      Supplier[]
+  purchaseRequests                                PurchaseRequest[]
+  purchaseOrders                                   PurchaseOrder[]
+  housekeepingTasks                                 HousekeepingTask[]
+  assets                                             Asset[]
+  maintenanceRequests                                 MaintenanceRequest[]
+  maintenanceInterventions                             MaintenanceIntervention[]
+  notifications                                        Notification[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
+}
+
+/// Jamais codé en dur (§5-6) — chaque hôtel définit sa propre structure. `managerId` validé en
+/// service (même hôtel que le département, cf. `DepartmentsService`), pas en contrainte DB.
+/// Pas de `costCenterId` ici : la relation inverse (`costCenters[]`) suffit, évite un cycle avec
+/// `CostCenter.departmentId`.
+model Department {
+  id          String  @id @default(cuid())
+  hotelId     String
+  name        String
+  code        String?
+  description String?
+  managerId   String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel       Hotel                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  manager     User?                @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+  activities  DepartmentActivity[]
+  costCenters CostCenter[]
+  users       UserDepartment[]
+  revenues    Revenue[]
+  expenses    Expense[]
+  budgetLines BudgetLine[]
+  invoices    Invoice[]
+  employees   Employee[]
+  purchaseRequests PurchaseRequest[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// Facultatives (§7) — ex. Food & Beverage → Restaurant/Bar/Room Service.
+model DepartmentActivity {
+  id           String  @id @default(cuid())
+  departmentId String
+  name         String
+  code         String?
+  description  String?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department  Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  revenues    Revenue[]
+  expenses    Expense[]
+  budgetLines BudgetLine[]
+  invoices    Invoice[]
+
+  @@unique([departmentId, name])
+  @@index([departmentId])
+}
+
+/// Deux FKs (conforme §8, pas une simplification) : `hotelId` requis + `departmentId` nullable —
+/// un centre de coût peut être transverse (ex. "Administration générale"), pas systématiquement
+/// rattaché à un département unique.
+model CostCenter {
+  id           String  @id @default(cuid())
+  hotelId      String
+  departmentId String?
+  code         String?
+  name         String
+  description  String?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel       Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  department  Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  revenues    Revenue[]
+  expenses    Expense[]
+  budgetLines BudgetLine[]
+  invoices    Invoice[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+  @@index([departmentId])
+}
+
+/// Complète §27 ("un utilisateur peut être associé à un ou plusieurs départements") — table de
+/// jointure seule, sans exploitation dans les guards d'isolation (le roadmap ne nomme
+/// "isolation département" à aucune phase pour l'instant).
+model UserDepartment {
+  userId       String
+  departmentId String
+  assignedAt   DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departmentId])
 }
 
 model User {
@@ -64,10 +223,39 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  hotel         Hotel?         @relation(fields: [hotelId], references: [id], onDelete: SetNull)
-  roles         UserRole[]
-  refreshTokens RefreshToken[]
+  organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  hotel                   Hotel?               @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  roles                    UserRole[]
+  refreshTokens             RefreshToken[]
+  departments                UserDepartment[]
+  managedDepartments           Department[]      @relation("DepartmentManager")
+  managedCashAccounts            CashAccount[]     @relation("CashAccountManager")
+  managedBankAccounts               BankAccount[]     @relation("BankAccountManager")
+  cashTransactionsCreated              CashTransaction[] @relation("CashTransactionCreator")
+  bankTransactionsCreated                 BankTransaction[] @relation("BankTransactionCreator")
+  revenuesRecorded                           Revenue[]         @relation("RevenueRecorder")
+  expensesRequested                             Expense[]         @relation("ExpenseRequester")
+  expensesValidated                                Expense[]         @relation("ExpenseValidator")
+  invoicesCreated                                     Invoice[]         @relation("InvoiceCreator")
+  paymentsCreated                                        Payment[]         @relation("PaymentCreator")
+  creditNotesCreated                                        CreditNote[]      @relation("CreditNoteCreator")
+  reservationsCreated                                          Reservation[]     @relation("ReservationCreator")
+  employee                                                        Employee?
+  leaveRequestsApproved                                             LeaveRequest[]    @relation("LeaveRequestApprover")
+  leaveRequestsCreated                                                LeaveRequest[]    @relation("LeaveRequestCreator")
+  payslipsCreated                                                       Payslip[]         @relation("PayslipCreator")
+  purchaseRequestsRequested                                               PurchaseRequest[] @relation("PurchaseRequestRequester")
+  purchaseRequestsApproved                                                 PurchaseRequest[] @relation("PurchaseRequestApprover")
+  purchaseOrdersCreated                                                     PurchaseOrder[]   @relation("PurchaseOrderCreator")
+  goodsReceiptsCreated                                                       GoodsReceipt[]    @relation("GoodsReceiptCreator")
+  housekeepingTasksCreated                                                    HousekeepingTask[]        @relation("HousekeepingTaskCreator")
+  housekeepingTasksCleaned                                                     HousekeepingTask[]        @relation("HousekeepingTaskCleaner")
+  housekeepingTasksInspected                                                    HousekeepingTask[]        @relation("HousekeepingTaskInspector")
+  maintenanceRequestsRequested                                                   MaintenanceRequest[]     @relation("MaintenanceRequestRequester")
+  maintenanceRequestsApproved                                                     MaintenanceRequest[]     @relation("MaintenanceRequestApprover")
+  maintenanceInterventionsCreated                                                  MaintenanceIntervention[] @relation("MaintenanceInterventionCreator")
+  maintenanceInterventionsPerformed                                                 MaintenanceIntervention[] @relation("MaintenanceInterventionPerformer")
+  notificationsReceived                                                              Notification[]           @relation("NotificationRecipient")
 
   @@index([organizationId])
   @@index([hotelId])
@@ -138,4 +326,1222 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ============================= FINANCE (Phase 5) =============================
+
+enum FinancialCategoryType {
+  REVENUE
+  EXPENSE
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CARD
+  CHECK
+  OTHER
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+  BOOKED
+}
+
+enum BudgetPeriod {
+  ANNUAL
+  QUARTERLY
+  MONTHLY
+}
+
+enum TransactionDirection {
+  IN
+  OUT
+}
+
+/// Nature de l'opération (§9) — distincte du département (qui répond à "où"). Configurable par
+/// hôtel, jamais codée en dur.
+model FinancialCategory {
+  id          String                @id @default(cuid())
+  hotelId     String
+  type        FinancialCategoryType
+  name        String
+  code        String?
+  description String?
+  isActive    Boolean               @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel       Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  revenues    Revenue[]
+  expenses    Expense[]
+  budgetLines BudgetLine[]
+  invoices    Invoice[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// Solde = openingBalance + Σ(IN) − Σ(OUT) des transactions, calculé à la volée (jamais
+/// dénormalisé) — voir docs/architecture/phase-5-finance.md. Pas de clôture de caisse cette phase.
+model CashAccount {
+  id             String  @id @default(cuid())
+  hotelId        String
+  name           String
+  code           String?
+  openingBalance Decimal @default(0) @db.Decimal(14, 2)
+  currency       String  @default("GNF")
+  managerId      String?
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel        Hotel             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  manager      User?             @relation("CashAccountManager", fields: [managerId], references: [id], onDelete: SetNull)
+  transactions CashTransaction[]
+  revenues     Revenue[]
+  expenses     Expense[]
+  payments     Payment[]
+  creditNotes  CreditNote[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+model BankAccount {
+  id             String  @id @default(cuid())
+  hotelId        String
+  name           String
+  bankName       String?
+  accountNumber  String?
+  openingBalance Decimal @default(0) @db.Decimal(14, 2)
+  currency       String  @default("GNF")
+  managerId      String?
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel        Hotel             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  manager      User?             @relation("BankAccountManager", fields: [managerId], references: [id], onDelete: SetNull)
+  transactions BankTransaction[]
+  revenues     Revenue[]
+  expenses     Expense[]
+  payments     Payment[]
+  creditNotes  CreditNote[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// Jamais créée en écriture libre — uniquement par RevenuesService (à la création) ou
+/// ExpensesService (au passage PAYÉ), dans une transaction Prisma atomique avec la Revenue/Expense.
+model CashTransaction {
+  id            String               @id @default(cuid())
+  cashAccountId String
+  direction     TransactionDirection
+  amount        Decimal              @db.Decimal(14, 2)
+  label         String
+  date          DateTime             @default(now())
+  revenueId     String?              @unique
+  expenseId     String?              @unique
+  paymentId     String?              @unique
+  creditNoteId  String?              @unique
+  createdById   String
+
+  createdAt DateTime @default(now())
+
+  cashAccount CashAccount @relation(fields: [cashAccountId], references: [id], onDelete: Cascade)
+  revenue     Revenue?    @relation(fields: [revenueId], references: [id], onDelete: SetNull)
+  expense     Expense?    @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  payment     Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  creditNote  CreditNote? @relation(fields: [creditNoteId], references: [id], onDelete: SetNull)
+  createdBy   User        @relation("CashTransactionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([cashAccountId])
+}
+
+model BankTransaction {
+  id            String               @id @default(cuid())
+  bankAccountId String
+  direction     TransactionDirection
+  amount        Decimal              @db.Decimal(14, 2)
+  label         String
+  date          DateTime             @default(now())
+  revenueId     String?              @unique
+  expenseId     String?              @unique
+  paymentId     String?              @unique
+  creditNoteId  String?              @unique
+  createdById   String
+
+  createdAt DateTime @default(now())
+
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  revenue     Revenue?    @relation(fields: [revenueId], references: [id], onDelete: SetNull)
+  expense     Expense?    @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  payment     Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  creditNote  CreditNote? @relation(fields: [creditNoteId], references: [id], onDelete: SetNull)
+  createdBy   User        @relation("BankTransactionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([bankAccountId])
+}
+
+/// Pas de statut (contrairement à Expense) — le brief ne décrit aucun cycle de vie pour les
+/// recettes (§12). Créée directement "finale", transaction caisse/banque postée dans le même
+/// $transaction que la Revenue elle-même.
+model Revenue {
+  id                  String        @id @default(cuid())
+  hotelId             String
+  departmentId        String?
+  activityId          String?
+  costCenterId        String?
+  categoryId          String
+  amount              Decimal       @db.Decimal(14, 2)
+  currency            String        @default("GNF")
+  date                DateTime      @default(now())
+  paymentMethod       PaymentMethod
+  cashAccountId       String?
+  bankAccountId       String?
+  reference           String?
+  attachmentReference String?
+  recordedById        String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel           Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  department      Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  activity        DepartmentActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  costCenter      CostCenter?         @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  category        FinancialCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cashAccount     CashAccount?        @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
+  bankAccount     BankAccount?        @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  recordedBy      User                @relation("RevenueRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  cashTransaction CashTransaction?
+  bankTransaction BankTransaction?
+
+  @@index([hotelId])
+  @@index([categoryId])
+  @@index([departmentId])
+  @@index([costCenterId])
+}
+
+/// Workflow explicite (§13) : DRAFT → PENDING → APPROVED/REJECTED → PAID → BOOKED. La transaction
+/// caisse/banque n'est créée qu'au passage PAID (jamais avant) — voir ExpensesService.
+model Expense {
+  id                  String        @id @default(cuid())
+  hotelId             String
+  departmentId        String?
+  activityId          String?
+  costCenterId        String?
+  categoryId          String
+  amount              Decimal       @db.Decimal(14, 2)
+  currency            String        @default("GNF")
+  date                DateTime      @default(now())
+  vendorName          String?
+  supplierId          String?
+  purchaseOrderId     String?
+  paymentMethod       PaymentMethod
+  cashAccountId       String?
+  bankAccountId       String?
+  reference           String?
+  attachmentReference String?
+  status              ExpenseStatus @default(DRAFT)
+
+  requesterId     String
+  validatorId     String?
+  validatedAt     DateTime?
+  rejectionReason String?
+  paidAt          DateTime?
+  bookedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel           Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  department      Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  activity        DepartmentActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  costCenter      CostCenter?         @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  category        FinancialCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cashAccount     CashAccount?        @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
+  bankAccount     BankAccount?        @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  requester       User                @relation("ExpenseRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  validator       User?               @relation("ExpenseValidator", fields: [validatorId], references: [id], onDelete: SetNull)
+  supplier        Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrder   PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  cashTransaction CashTransaction?
+  bankTransaction BankTransaction?
+  payslip         Payslip?
+
+  @@index([hotelId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+}
+
+/// Pas de workflow DRAFT/ACTIVE/CLOSED — non demandé par le brief.
+model Budget {
+  id         String       @id @default(cuid())
+  hotelId    String
+  name       String
+  periodType BudgetPeriod
+  startDate  DateTime
+  endDate    DateTime
+  isActive   Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel Hotel        @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  lines BudgetLine[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// `type` requis (indépendant de `categoryId`) — résout l'ambiguïté revenue/expense quand une
+/// ligne cible uniquement un département/activité/centre de coût sans catégorie précise.
+/// Prévu/Réalisé/Écart/Taux calculés à la demande (GET /budgets/:id/execution), jamais stockés.
+model BudgetLine {
+  id            String                @id @default(cuid())
+  budgetId      String
+  type          FinancialCategoryType
+  departmentId  String?
+  activityId    String?
+  costCenterId  String?
+  categoryId    String?
+  plannedAmount Decimal               @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  budget     Budget              @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  department Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  activity   DepartmentActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  costCenter CostCenter?         @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  category   FinancialCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([budgetId])
+}
+
+// ============================= FACTURATION (Phase 6) =============================
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+}
+
+/// `clientName`/`clientType`/`clientContact`/`clientAddress` en texte libre. `guestId`/
+/// `reservationId` (Phase 7) COMPLÈTENT ces champs, ne les remplacent pas — une facture
+/// "entreprise" peut ne référencer aucun client individuel identifié. `reservationId`
+/// volontairement non unique : une réservation peut en principe donner lieu à plusieurs factures
+/// (acompte + solde), ce workflow lui-même restant hors périmètre.
+///
+/// Statuts recalculés déterministiquement (dueBalance vs paiements/avoirs) sauf CANCELLED qui
+/// est un choix explicite — voir docs/architecture/phase-6-billing.md. Totaux
+/// (subtotal/taxTotal/grandTotal/amountPaid/dueBalance) calculés à la demande, jamais stockés —
+/// même principe que le solde CashAccount (Phase 5).
+model Invoice {
+  id            String        @id @default(cuid())
+  hotelId       String
+  departmentId  String?
+  activityId    String?
+  costCenterId  String?
+  categoryId    String
+  status        InvoiceStatus @default(DRAFT)
+  invoiceNumber String?
+  issueDate     DateTime?
+  dueDate       DateTime?
+  currency      String        @default("GNF")
+
+  clientName    String
+  clientType    ClientType @default(INDIVIDUAL)
+  clientContact String?
+  clientAddress String?
+  guestId       String?
+  reservationId String?
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel       Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  department  Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  activity    DepartmentActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  costCenter  CostCenter?         @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  category    FinancialCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  guest       Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  reservation Reservation?        @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  createdBy   User                @relation("InvoiceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines       InvoiceLine[]
+  payments    Payment[]
+  creditNotes CreditNote[]
+
+  @@unique([hotelId, invoiceNumber])
+  @@index([hotelId])
+  @@index([status])
+  @@index([guestId])
+  @@index([reservationId])
+}
+
+/// `discountRate`/`taxRate` en fraction (0.18 = 18%), PAS en pourcentage entier. Total ligne =
+/// quantity × unitPrice × (1−discountRate) × (1+taxRate). Immuables une fois la facture ISSUED
+/// (validé en service, pas en contrainte DB).
+model InvoiceLine {
+  id            String  @id @default(cuid())
+  invoiceId     String
+  description   String
+  quantity      Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice     Decimal @db.Decimal(14, 2)
+  discountRate  Decimal @default(0) @db.Decimal(4, 3)
+  taxRate       Decimal @default(0) @db.Decimal(4, 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+/// Poste directement une CashTransaction/BankTransaction (IN) — AUCUNE ligne Revenue créée (voir
+/// docs/architecture/phase-6-billing.md, décision 3 : Invoice/Payment et Revenue coexistent sans
+/// unification). Recalcule le statut de la facture dans le même $transaction.
+model Payment {
+  id            String        @id @default(cuid())
+  invoiceId     String
+  amount        Decimal       @db.Decimal(14, 2)
+  paymentMethod PaymentMethod
+  date          DateTime      @default(now())
+  cashAccountId String?
+  bankAccountId String?
+  reference     String?
+  createdById   String
+
+  createdAt DateTime @default(now())
+
+  invoice         Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  cashAccount     CashAccount?     @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
+  bankAccount     BankAccount?     @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  createdBy       User             @relation("PaymentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  cashTransaction CashTransaction?
+  bankTransaction BankTransaction?
+
+  @@index([invoiceId])
+}
+
+/// Remboursement optionnel : si cashAccountId/bankAccountId renseigné (XOR si présent), une
+/// transaction OUT est postée (argent réellement rendu) ; sinon l'avoir réduit seulement le solde
+/// dû sur papier (geste commercial/correction).
+model CreditNote {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  amount        Decimal  @db.Decimal(14, 2)
+  reason        String?
+  date          DateTime @default(now())
+  cashAccountId String?
+  bankAccountId String?
+  createdById   String
+
+  createdAt DateTime @default(now())
+
+  invoice         Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  cashAccount     CashAccount?     @relation(fields: [cashAccountId], references: [id], onDelete: SetNull)
+  bankAccount     BankAccount?     @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  createdBy       User             @relation("CreditNoteCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  cashTransaction CashTransaction?
+  bankTransaction BankTransaction?
+
+  @@index([invoiceId])
+}
+
+// ============================= RÉSERVATIONS + CHAMBRES (Phase 7) =============================
+
+/// Catalogue par hôtel (§18), jamais codé en dur — même famille que FinancialCategory/Department :
+/// pas de createdById, isActive pour désactivation permanente. `baseRate` = tarif de référence
+/// courant, recopié (jamais relu en direct) dans `Reservation.agreedRate` au moment de la
+/// réservation : un changement de tarif ne doit jamais faire dériver une réservation déjà prise
+/// (même principe que InvoiceLine.unitPrice, Phase 6).
+model RoomType {
+  id          String  @id @default(cuid())
+  hotelId     String
+  name        String
+  code        String?
+  description String?
+  baseRate    Decimal @db.Decimal(14, 2)
+  currency    String  @default("GNF")
+  capacity    Int?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  rooms Room[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// Pas de statut d'occupation ni de ménage stocké (§25 Housekeeping = Phase 10, hors périmètre) —
+/// "disponible" se calcule en cherchant une Reservation active en chevauchement sur
+/// [checkInDate, checkOutDate), jamais dénormalisé (même principe que le solde CashAccount).
+/// `isActive` = désactivation permanente (chambre décommissionnée), PAS un sous-statut
+/// maintenance/hors-service temporaire (Phase 10).
+model Room {
+  id         String  @id @default(cuid())
+  hotelId    String
+  roomTypeId String
+  number     String
+  floor      String?
+  building   String?
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomType     RoomType      @relation(fields: [roomTypeId], references: [id], onDelete: Restrict)
+  reservations Reservation[]
+  housekeepingTasks        HousekeepingTask[]
+  assets                   Asset[]
+  maintenanceRequests      MaintenanceRequest[]
+  maintenanceInterventions MaintenanceIntervention[]
+
+  @@unique([hotelId, number])
+  @@index([hotelId])
+  @@index([roomTypeId])
+}
+
+/// Identité/historique/préférences (§20) — historique = relations `reservations[]`/`invoices[]`
+/// exploitées à la demande, jamais dupliquées. `documentType` en texte libre (pas d'enum — les
+/// types de pièces d'identité varient par pays/contexte, même logique que les noms de
+/// Department/CostCenter). Pas de `createdById` : entité catalogue/référence, pas un workflow
+/// (même statut que FinancialCategory). Scope hôtel uniquement cette phase — pas d'unification
+/// inter-hôtels d'une même chaîne (limite documentée, pas un redesign ici).
+model Guest {
+  id             String  @id @default(cuid())
+  hotelId        String
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  documentType   String?
+  documentNumber String?
+  nationality    String?
+  address        String?
+  preferences    String?
+  notes          String?
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  invoices     Invoice[]
+
+  @@index([hotelId])
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+/// Workflow (§19) : PENDING → CONFIRMED → CHECKED_IN → CHECKED_OUT, avec CANCELLED/NO_SHOW en
+/// sorties alternatives. "Demande"/"réservation" du brief sont collapsées en un seul PENDING —
+/// PENDING bloque déjà la chambre (contrôle de chevauchement dans ReservationsService), donc une
+/// "demande" qui ne bloquerait rien précède la frontière du système et n'a pas besoin d'être
+/// persistée séparément (voir docs/architecture/phase-7-reservations.md).
+///
+/// Une chambre précise assignée dès la création (pas de réservation par TYPE puis allocation
+/// différée) et une seule chambre par réservation (pas de multi-chambres) — simplifications
+/// délibérées, non détaillées au brief.
+///
+/// `agreedRate` = copie figée de `RoomType.baseRate` (ou tarif négocié) au moment de la
+/// réservation — jamais relu depuis RoomType après coup. Pas de `roomTypeId` stocké ici (dérivable
+/// via `room.roomType`, pure FK sans besoin de figer dans le temps).
+///
+/// Pas de dimensions analytiques (departmentId/activityId/costCenterId) — Reservation est un
+/// engagement opérationnel, pas encore un fait financier. Comme pour Revenue/Expense/Invoice
+/// (§46), les dimensions sont toujours choisies au moment où le document financier (ici la future
+/// Invoice) est créé, jamais héritées d'un enregistrement en amont.
+model Reservation {
+  id           String   @id @default(cuid())
+  hotelId      String
+  guestId      String
+  roomId       String
+  checkInDate  DateTime
+  checkOutDate DateTime
+
+  actualCheckInAt  DateTime?
+  actualCheckOutAt DateTime?
+
+  adults   Int @default(1)
+  children Int @default(0)
+
+  agreedRate Decimal @db.Decimal(14, 2)
+  currency   String  @default("GNF")
+
+  // Texte libre (pas de canal codé en dur) — ex. "direct"/"phone"/"walk-in".
+  source       String?
+  notes        String?
+  cancelReason String?
+
+  status ReservationStatus @default(PENDING)
+
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel     Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guest     Guest     @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  createdBy User      @relation("ReservationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  invoices  Invoice[]
+
+  @@index([hotelId])
+  @@index([roomId])
+  @@index([guestId])
+  @@index([status])
+}
+
+// ================== RH + PLANNING + PRÉSENCE + CONGÉS + PAIE (Phase 8) ==================
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PayslipStatus {
+  DRAFT
+  FINALIZED
+  PAID
+}
+
+/// §21 "employés, contrats" — contrat en champs plats, pas de modèle Contract séparé (le brief ne
+/// détaille ni avenant ni historique de versions — même raisonnement que Debts non modélisé en
+/// Phase 6). `userId` FACULTATIF et unique — complète User sans le remplacer (même principe
+/// qu'Invoice.clientName vs guestId, Phase 6/7) : personnel cuisine/ménage suivi en RH/paie sans
+/// jamais se connecter au système, `firstName`/`lastName` restent propres à Employee. Entité
+/// catalogue (comme Guest/RoomType) : pas de createdById, pas de statut/workflow, isActive +
+/// terminationDate/terminationReason pour un départ, pas de DELETE réel.
+model Employee {
+  id                String    @id @default(cuid())
+  hotelId           String
+  userId            String?   @unique
+  firstName         String
+  lastName          String
+  email             String?
+  phone             String?
+  position          String?
+  departmentId      String?
+  employeeNumber    String?
+  hireDate          DateTime?
+  contractType      String?
+  contractStartDate DateTime?
+  contractEndDate   DateTime?
+  baseSalary        Decimal   @db.Decimal(14, 2)
+  currency          String    @default("GNF")
+  isActive          Boolean   @default(true)
+  terminationDate   DateTime?
+  terminationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel         Hotel          @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department    Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  workSchedules WorkSchedule[]
+  attendances   Attendance[]
+  leaveRequests LeaveRequest[]
+  payslips      Payslip[]
+
+  @@unique([hotelId, employeeNumber])
+  @@index([hotelId])
+  @@index([departmentId])
+}
+
+/// "Planning" (§21) — CRUD simple, pas de récurrence (créneaux répétés non détaillés au brief) ni
+/// de contrôle de chevauchement (contrairement à Room : un planning nominal en double n'est pas une
+/// contrainte d'exclusivité physique comme une chambre occupée deux fois, c'est un jugement RH —
+/// roulement fractionné, chevauchement de passation).
+model WorkSchedule {
+  id         String   @id @default(cuid())
+  hotelId    String
+  employeeId String
+  startAt    DateTime
+  endAt      DateTime
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([hotelId])
+  @@index([employeeId])
+}
+
+/// "Présences" (§21) — pointage manuel (pas de borne biométrique/kiosque, hors périmètre).
+/// `create()` = clock-in, rejette (409) si un enregistrement ouvert (clockOut null) existe déjà
+/// pour l'employé. Pas d'isolation "propre pointage uniquement" — aucune dimension d'isolation par
+/// utilisateur n'existe ailleurs dans le code (seulement organisation/hôtel) ; en introduire une
+/// ici serait un nouveau concept non établi.
+model Attendance {
+  id         String    @id @default(cuid())
+  hotelId    String
+  employeeId String
+  clockIn    DateTime  @default(now())
+  clockOut   DateTime?
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([hotelId])
+  @@index([employeeId])
+}
+
+/// "Congés" (§21). `type` en texte libre (congé payé/maladie/sans solde... varie par pays/CBA,
+/// même logique que Reservation.source). PENDING → APPROVED/REJECTED/CANCELLED tous via
+/// transition() (statut source unique dans les trois cas — même pattern qu'ExpensesService,
+/// contrairement à Reservation.cancel() qui admet deux statuts source). Annuler un congé déjà
+/// APPROVED est hors périmètre cette phase (limite documentée, pas un oubli silencieux).
+model LeaveRequest {
+  id              String      @id @default(cuid())
+  hotelId         String
+  employeeId      String
+  type            String?
+  startDate       DateTime
+  endDate         DateTime
+  reason          String?
+  status          LeaveStatus @default(PENDING)
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdById     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel      Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  approvedBy User?    @relation("LeaveRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy  User     @relation("LeaveRequestCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([hotelId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+/// "Paie" (§22) : netPay = baseSalary + bonuses + overtimeAmount − absenceDeduction − advances −
+/// deductions, calculé à la demande (jamais stocké, même principe que les totaux Invoice).
+/// `baseSalary` = COPIE figée d'Employee.baseSalary à la création (jamais relue après, même
+/// principe qu'agreedRate/unitPrice). DRAFT → FINALIZED (verrouille les montants) → PAID :
+/// markPaid() crée une Expense (status PAID direct, pas de re-parcours DRAFT/PENDING/APPROVED — le
+/// FINALIZED du Payslip représente déjà l'approbation RH) + CashTransaction/BankTransaction dans un
+/// seul $transaction, exactement comme ExpensesService.markPaid — "alimente automatiquement
+/// Finance" (§22). Pas de lien automatique Attendance/LeaveRequest → absenceDeduction : saisie
+/// manuelle (même limite documentée que la non-réconciliation Invoice/Revenue, Phase 6).
+model Payslip {
+  id               String        @id @default(cuid())
+  hotelId          String
+  employeeId       String
+  periodYear       Int
+  periodMonth      Int
+  baseSalary       Decimal       @db.Decimal(14, 2)
+  bonuses          Decimal       @default(0) @db.Decimal(14, 2)
+  overtimeAmount   Decimal       @default(0) @db.Decimal(14, 2)
+  absenceDeduction Decimal       @default(0) @db.Decimal(14, 2)
+  advances         Decimal       @default(0) @db.Decimal(14, 2)
+  deductions       Decimal       @default(0) @db.Decimal(14, 2)
+  currency         String        @default("GNF")
+  status           PayslipStatus @default(DRAFT)
+  expenseId        String?       @unique
+  paidAt           DateTime?
+  createdById      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel     Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdBy User     @relation("PayslipCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([hotelId, employeeId, periodYear, periodMonth])
+  @@index([hotelId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+// ============================= ACHATS (Phase 9) =============================
+
+enum PurchaseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+/// Catalogue par hôtel (§23), même famille que Guest/Department/FinancialCategory : pas de
+/// createdById, isActive pour désactivation permanente, pas de DELETE réel. C'est le vrai modèle
+/// annoncé en Phase 5 (voir docs/architecture/phase-5-finance.md, périmètre exclu) — Expense.
+/// vendorName (texte libre) reste, Expense.supplierId le COMPLÈTE, ne le remplace pas (même
+/// principe qu'Invoice.guestId vs clientName, Phase 6/7).
+model Supplier {
+  id          String  @id @default(cuid())
+  hotelId     String
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  taxId       String?
+  notes       String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel          Hotel           @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  expenses       Expense[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// "Demande d'achat → validation" (§23), premières deux étapes du workflow — collapsées en un seul
+/// modèle exactement comme LeaveRequest (Phase 8) : create() → PENDING directement (pas de DRAFT,
+/// une "demande" est déjà l'objet soumis), approve()/reject()/cancel() partent tous du même statut
+/// source PENDING via transition(), update() autorisé tant que PENDING. `departmentId` seul (pas
+/// activityId/costCenterId) — le brief nomme explicitement "affectable à un département" pour cette
+/// étape, rien de plus ; PAS de dimensions complètes façon Revenue/Expense/Invoice ici, volontaire.
+///
+/// Pas de `supplierId` : au stade de la demande, le fournisseur n'est pas encore choisi (ça arrive
+/// à l'étape suivante, le bon de commande) — même logique que Reservation n'ayant pas de dimensions
+/// analytiques avant que le document financier ne les fixe (§46, Phase 7).
+model PurchaseRequest {
+  id              String                @id @default(cuid())
+  hotelId         String
+  departmentId    String?
+  description     String
+  estimatedAmount Decimal?              @db.Decimal(14, 2)
+  currency        String                @default("GNF")
+  status          PurchaseRequestStatus @default(PENDING)
+  requestedById   String
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel          Hotel           @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  department     Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  requestedBy    User            @relation("PurchaseRequestRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy     User?           @relation("PurchaseRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  purchaseOrders PurchaseOrder[]
+
+  @@index([hotelId])
+  @@index([departmentId])
+  @@index([status])
+}
+
+/// "Bon de commande" (§23) — troisième étape, le vrai document envoyé au fournisseur. `supplierId`
+/// requis (contrairement à PurchaseRequest, ici le fournisseur est nécessairement connu).
+/// `purchaseRequestId` optionnel (une commande directe sans demande préalable reste possible, même
+/// logique qu'Invoice.reservationId facultatif, Phase 7) — si renseigné, doit référencer une
+/// demande APPROVED (fait respecter l'ordre "validation → bon de commande" du brief).
+///
+/// Statuts recalculés déterministiquement à chaque réception (`recalculateStatus()`, même principe
+/// qu'Invoice, Phase 6), sauf CANCELLED qui est une action explicite, impossible dès qu'une
+/// GoodsReceipt existe (miroir de l'annulation Invoice bloquée si des paiements existent).
+/// `orderNumber` assigné à `send()` (DRAFT → SENT), pas à la création — même principe que
+/// `Invoice.invoiceNumber` assigné à `issue()`. Lignes immuables hors DRAFT (vérifié en service).
+///
+/// Pas de dimensions analytiques (departmentId/activityId/costCenterId) — comme Reservation
+/// (Phase 7), c'est un engagement opérationnel, pas encore un fait financier ; les dimensions sont
+/// choisies au moment de l'Expense ("facture fournisseur", voir Expense.supplierId/purchaseOrderId
+/// ci-dessus), jamais héritées d'un document en amont (§46).
+model PurchaseOrder {
+  id                String              @id @default(cuid())
+  hotelId           String
+  supplierId        String
+  purchaseRequestId String?
+  orderNumber       String?
+  status            PurchaseOrderStatus @default(DRAFT)
+  orderDate         DateTime?
+  expectedDate      DateTime?
+  currency          String              @default("GNF")
+  notes             String?
+  createdById       String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel           Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  supplier        Supplier           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchaseRequest PurchaseRequest?   @relation(fields: [purchaseRequestId], references: [id], onDelete: SetNull)
+  createdBy       User               @relation("PurchaseOrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines           PurchaseOrderLine[]
+  goodsReceipts   GoodsReceipt[]
+  expenses        Expense[]
+
+  @@unique([hotelId, orderNumber])
+  @@index([hotelId])
+  @@index([supplierId])
+  @@index([purchaseRequestId])
+  @@index([status])
+}
+
+/// Immuable une fois la commande SENT (validé en service, pas en contrainte DB — même principe
+/// qu'InvoiceLine, Phase 6). Pas de discountRate/taxRate (contrairement à InvoiceLine) : un bon de
+/// commande interne n'a pas besoin de la mécanique de facturation client, non détaillé au brief.
+model PurchaseOrderLine {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  description     String
+  quantity        Decimal @db.Decimal(10, 2)
+  unitPrice       Decimal @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchaseOrder     PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  goodsReceiptLines GoodsReceiptLine[]
+
+  @@index([purchaseOrderId])
+}
+
+/// "Réception" (§23) — quatrième étape. Pas de `hotelId` propre (dérivé via `purchaseOrder`, même
+/// principe que Payment/CreditNote, Phase 6). Pas de PATCH/DELETE : une réception constatée est un
+/// fait immuable, même statut que Payment/CreditNote — une correction se ferait par une nouvelle
+/// réception (négative non supportée cette phase, voir périmètre exclu), pas une modification
+/// rétroactive. Quantité reçue cumulée par ligne calculée à la demande (jamais dénormalisée sur
+/// PurchaseOrderLine), même principe que le solde CashAccount.
+model GoodsReceipt {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  date            DateTime @default(now())
+  notes           String?
+  createdById     String
+
+  createdAt DateTime @default(now())
+
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  createdBy     User               @relation("GoodsReceiptCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines         GoodsReceiptLine[]
+
+  @@index([purchaseOrderId])
+}
+
+model GoodsReceiptLine {
+  id                  String  @id @default(cuid())
+  goodsReceiptId      String
+  purchaseOrderLineId String
+  quantityReceived    Decimal @db.Decimal(10, 2)
+
+  goodsReceipt      GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id], onDelete: Restrict)
+
+  @@index([goodsReceiptId])
+  @@index([purchaseOrderLineId])
+}
+
+// ================== MÉNAGE + MAINTENANCE (Phase 10) ==================
+
+enum HousekeepingStatus {
+  TO_CLEAN
+  CLEANED
+  INSPECTED
+}
+
+/// "Ménage" (§25) — dashboard chambres à nettoyer/propres/inspectées, workflow check-out →
+/// nettoyage → inspection → disponible. Statut JAMAIS dénormalisé sur `Room` (contrairement à une
+/// tentation naturelle) : même principe que la disponibilité `Room` calculée depuis `Reservation`
+/// (Phase 7) — le statut "courant" d'une chambre se lit en cherchant sa `HousekeepingTask` la plus
+/// récente (`HousekeepingTasksService.dashboard()`), jamais stocké sur `Room`.
+///
+/// Pas de PATCH/update (comme `Attendance`, Phase 8) : `create()` = constat "à nettoyer", `clean()`
+/// et `inspect()` sont les deux seules transitions, chacune enregistre qui/quand (même principe que
+/// `validatorId`/`validatedAt` sur `Expense`). Pas de retour en arrière après `INSPECTED` (une
+/// inspection ratée relancerait un nouveau `HousekeepingTask`, pas une réouverture — non détaillé
+/// au brief). Déclenchement automatique à la Phase 7 (`ReservationsService.checkOut()`) hors
+/// périmètre — création manuelle uniquement cette phase (évite de rouvrir un fichier d'une phase
+/// déjà close pour une automatisation non demandée explicitement).
+model HousekeepingTask {
+  id            String             @id @default(cuid())
+  hotelId       String
+  roomId        String
+  status        HousekeepingStatus @default(TO_CLEAN)
+  notes         String?
+  createdById   String
+  cleanedById   String?
+  cleanedAt     DateTime?
+  inspectedById String?
+  inspectedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel       Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room        Room   @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  createdBy   User   @relation("HousekeepingTaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  cleanedBy   User?  @relation("HousekeepingTaskCleaner", fields: [cleanedById], references: [id], onDelete: SetNull)
+  inspectedBy User?  @relation("HousekeepingTaskInspector", fields: [inspectedById], references: [id], onDelete: SetNull)
+
+  @@index([hotelId])
+  @@index([roomId])
+  @@index([status])
+}
+
+/// "Équipements/actifs" (§26) — catalogue par hôtel, `roomId` optionnel (un actif peut être général
+/// à l'hôtel — groupe électrogène, ascenseur — pas systématiquement rattaché à une chambre). PAS de
+/// `@@unique([hotelId, name])` (contrairement à Supplier/Department/FinancialCategory) : plusieurs
+/// actifs peuvent légitimement partager un nom générique (ex. plusieurs "Climatiseur Split"
+/// distincts par chambre/`serialNumber`) — le nom ne sert pas d'identifiant humain unique ici,
+/// déviation assumée du reste des catalogues.
+model Asset {
+  id           String    @id @default(cuid())
+  hotelId      String
+  roomId       String?
+  name         String
+  category     String?
+  serialNumber String?
+  purchaseDate DateTime?
+  notes        String?
+  isActive     Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel                    Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room                     Room?                     @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  maintenanceRequests      MaintenanceRequest[]
+  maintenanceInterventions MaintenanceIntervention[]
+
+  @@index([hotelId])
+  @@index([roomId])
+}
+
+enum MaintenanceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// "Demandes" (§26) — même forme que `PurchaseRequest` (Phase 9) : `create()` → `PENDING`
+/// directement, `approve()`/`reject()`/`cancel()` partent tous de `PENDING` via `transition()`,
+/// `update()` autorisé tant que `PENDING`. `assetId`/`roomId` tous deux optionnels et indépendants
+/// (pas de XOR) : un problème peut concerner un actif catalogué, juste un emplacement (ex. "fuite
+/// robinet chambre 204" sans actif précis), les deux, ou ni l'un ni l'autre (maintenance générale).
+/// Pas de statut "RESOLVED" : la clôture réelle est représentée par le statut `COMPLETED` de
+/// l'intervention liée (`MaintenanceIntervention.maintenanceRequestId`), pas dupliquée ici — même
+/// principe que Phase 6 (pas de modèle Dettes séparé, `Expense.status` suffit).
+model MaintenanceRequest {
+  id              String                    @id @default(cuid())
+  hotelId         String
+  assetId         String?
+  roomId          String?
+  description     String
+  status          MaintenanceRequestStatus  @default(PENDING)
+  requestedById   String
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel         Hotel                     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  asset         Asset?                    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  room          Room?                     @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  requestedBy   User                      @relation("MaintenanceRequestRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy    User?                     @relation("MaintenanceRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  interventions MaintenanceIntervention[]
+
+  @@index([hotelId])
+  @@index([assetId])
+  @@index([roomId])
+  @@index([status])
+}
+
+enum MaintenanceInterventionType {
+  PREVENTIVE
+  CORRECTIVE
+}
+
+enum MaintenanceInterventionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+/// "Interventions préventives/correctives" (§26) — même mécanique de statuts qu'un `PurchaseOrder`
+/// simplifié (pas de lignes : une intervention est une unité de travail, pas un document multi-
+/// articles, non détaillé au brief). `maintenanceRequestId` optionnel (une intervention PREVENTIVE
+/// est typiquement planifiée sans demande préalable ; une CORRECTIVE répond généralement à une
+/// demande, sans que ce soit une règle imposée) — si renseigné, doit référencer une
+/// `MaintenanceRequest` `APPROVED` (même principe que `PurchaseOrder.purchaseRequestId`, Phase 9).
+///
+/// "Coûts" (§26) : simple champ `cost` descriptif, PAS de FK `Expense` additive (contrairement à
+/// `Payslip.expenseId`/`Expense.purchaseOrderId`, Phases 8/9) — une intervention n'implique pas
+/// systématiquement une sortie de caisse réelle (travail interne sans achat), et le cas où elle en
+/// implique une (pièces/prestataire externe) passe déjà par le circuit `Supplier`/`PurchaseOrder`/
+/// `Expense` existant (Phase 9) : dupliquer le lien ici serait redondant.
+///
+/// "Historique" (§26) : pas de nouveau modèle — `GET /maintenance-interventions?assetId=`/`roomId=`
+/// (liste filtrée) suffit, même principe que les Créances/Dettes en vues calculées (Phase 6).
+model MaintenanceIntervention {
+  id                  String                         @id @default(cuid())
+  hotelId             String
+  assetId             String?
+  roomId              String?
+  maintenanceRequestId String?
+  type                MaintenanceInterventionType
+  status              MaintenanceInterventionStatus  @default(SCHEDULED)
+  scheduledDate       DateTime?
+  completedDate       DateTime?
+  cost                Decimal?                       @db.Decimal(14, 2)
+  notes               String?
+  createdById         String
+  performedById       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel              Hotel               @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  asset              Asset?              @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  room               Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  maintenanceRequest MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: SetNull)
+  createdBy          User                @relation("MaintenanceInterventionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  performedBy        User?               @relation("MaintenanceInterventionPerformer", fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([hotelId])
+  @@index([assetId])
+  @@index([roomId])
+  @@index([maintenanceRequestId])
+  @@index([status])
+}
+
+// ================== NOTIFICATIONS + AUDIT TRAIL (Phase 12) ==================
+
+/// "Notifications in-app" (§35) — le canal "push" du brief nécessite un fournisseur externe
+/// (FCM/APNs, identifiants non fournis) : hors périmètre cette phase, seul le stockage/consultation
+/// in-app est implémenté (voir docs/architecture/phase-12-notifications-audit.md).
+///
+/// `userId` requis : une notification a TOUJOURS un destinataire unique — contrairement à tout le
+/// reste du schéma, l'isolation n'est pas hôtel/organisation mais strictement "ses propres
+/// notifications" (même pour SUPER_ADMIN). `type` en texte libre (ex. "budget_overspend") —
+/// varie librement, même logique que `Reservation.source`/`LeaveRequest.type`. `relatedType`/
+/// `relatedId` (tous deux optionnels) référencent en clair l'entité déclenchante — utilisés pour
+/// dédupliquer une alerte (`BudgetsService.checkOverspendAlerts()` vérifie qu'aucune notification
+/// n'existe déjà pour `relatedType="budget_line"`+`relatedId` avant d'en créer une nouvelle),
+/// jamais une vraie FK polymorphe (le type de la cible varie, pas de contrainte DB possible).
+model Notification {
+  id          String    @id @default(cuid())
+  hotelId     String?
+  userId      String
+  type        String
+  title       String
+  message     String
+  link        String?
+  relatedType String?
+  relatedId   String?
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+
+  createdAt DateTime @default(now())
+
+  hotel Hotel? @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  user  User   @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([relatedType, relatedId])
+}
+
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
+/// "Audit trail" (§37) — écrit par `AuditInterceptor` (global, `common/interceptors/`, annoncé dès
+/// la Phase 2 : "un interceptor d'audit qu'à partir de la Phase 12"). Seules les requêtes
+/// mutantes (POST/PATCH/PUT/DELETE) sont journalisées — les GET ne le sont pas (volume, pratique
+/// standard d'un journal d'audit "qui a changé quoi", pas un log d'accès complet).
+///
+/// `organizationId`/`hotelId`/`userId` en **texte libre, sans FK** — déviation assumée du reste du
+/// schéma (partout ailleurs, FK réelle avec `onDelete` explicite) : un journal d'audit doit
+/// survivre à la suppression future de l'utilisateur/hôtel/organisation qu'il référence, jamais
+/// être bloqué (`Restrict`) ni vidé (`SetNull`/`Cascade`) par elle.
+///
+/// Pas de code HTTP exact capturé : `outcome` (SUCCESS/FAILURE) suffit pour un audit trail minimal
+/// — capturer le code précis exigerait de lire `response.statusCode` avant que Nest ne l'ait
+/// réellement fixé (le `tap()` d'un interceptor s'exécute avant l'envoi final de la réponse),
+/// fragile et non demandé au brief. Pas de corps de requête/réponse stocké (évite de journaliser
+/// des données sensibles comme un mot de passe sur `/auth/login`) — juste method/path/acteur/
+/// résultat. Les rejets 401/403 (Guards) n'atteignent jamais l'interceptor (s'exécute après les
+/// Guards dans le cycle de vie Nest) — limite documentée, pas un oubli.
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String?
+  hotelId        String?
+  userId         String?
+  method         String
+  path           String
+  resourceType   String?
+  outcome        AuditOutcome
+  errorMessage   String?
+  ipAddress      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([hotelId])
+  @@index([userId])
+  @@index([createdAt])
 }
