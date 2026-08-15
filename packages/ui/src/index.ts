@@ -12,5 +12,7 @@ export * from "./components/avatar.js";
 export * from "./components/tooltip.js";
 export * from "./components/skeleton.js";
 export * from "./components/kpi-card.js";
+export * from "./components/input.js";
+export * from "./components/label.js";
 
 export * as Icons from "./icons/index.js";

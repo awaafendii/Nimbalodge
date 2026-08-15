@@ -1,4 +1,6 @@
-import { useLocation } from "react-router-dom";
+import { useIsFetching } from "@tanstack/react-query";
+import { Loader2, LogOut } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import {
   Avatar,
   AvatarFallback,
@@ -13,14 +15,23 @@ import {
 } from "@nimbalodge/ui";
 
 import { ALL_NAV_ITEMS } from "./nav-config.js";
+import { useLogout } from "../../hooks/use-auth.js";
+import { useAuthStore } from "../../stores/auth-store.js";
 import { useUIStore } from "../../stores/ui-store.js";
 
 // Port de nimbalodge-app/src/components/layout/Topbar.jsx : titre/sous-titre dérivés de la route
-// courante (via nav-config, source unique avec Sidebar), burger mobile, menu utilisateur.
+// courante, burger mobile, menu utilisateur — piloté par l'utilisateur réel (GET /auth/me).
+// L'icône "sync" (spinner) reflète useIsFetching() : indicateur d'activité réseau en arrière-plan,
+// pas une file de synchronisation offline (non implémentée, voir docs/architecture/phase-14-frontend-connection.md).
 export function Topbar() {
   const location = useLocation();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const current = ALL_NAV_ITEMS.find((item) => item.to === location.pathname);
+  const user = useAuthStore((s) => s.user);
+  const logout = useLogout();
+  const isFetching = useIsFetching();
+
+  const initials = user ? `${user.firstName.at(0) ?? ""}${user.lastName.at(0) ?? ""}`.toUpperCase() : "?";
 
   return (
     <header className="flex items-center gap-3 border-b border-border bg-card px-4 py-3.5 sm:px-6">
@@ -35,22 +46,42 @@ export function Topbar() {
         {current?.subtitle ? <p className="truncate text-xs text-muted-foreground">{current.subtitle}</p> : null}
       </div>
 
-      <Button variant="ghost" size="icon" aria-label="Notifications">
-        <Icons.IconBell />
+      {isFetching > 0 ? (
+        <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Synchronisation en cours" />
+      ) : null}
+
+      <Button variant="ghost" size="icon" aria-label="Notifications" asChild>
+        <Link to="/notifications">
+          <Icons.IconBell />
+        </Link>
       </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Avatar>
-              <AvatarFallback>?</AvatarFallback>
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Non connecté</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {user ? (
+              <div className="flex flex-col">
+                <span className="truncate">
+                  {user.firstName} {user.lastName}
+                </span>
+                <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
+              </div>
+            ) : (
+              "…"
+            )}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled>Authentification — Phase 3</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => logout.mutate()}>
+            <LogOut className="mr-2 size-4" />
+            Se déconnecter
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>

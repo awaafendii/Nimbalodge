@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
+import { RequireAuth } from "../components/auth/require-auth.js";
 import { AppShell } from "../components/layout/AppShell.js";
+import LoginPage from "../features/auth/login.js";
 import DashboardPage from "../features/dashboard/index.js";
 import FinancePage from "../features/finance/index.js";
 import ReservationsPage from "../features/reservations/index.js";
@@ -16,28 +18,34 @@ import ReportsPage from "../features/reports/index.js";
 import NotificationsPage from "../features/notifications/index.js";
 import SettingsPage from "../features/settings/index.js";
 
-// Pas de garde d'auth (Phase 3). Une route par module de nav-config.tsx — toutes montées, même
-// vides, pour démontrer la structure complète cible (brief §43) dès la Phase 1.
+// Phase 14 : /login public (RequireAuth y redirige quand aucun token valide n'est présent), tout
+// le reste derrière RequireAuth → AppShell. Une route par module de nav-config.tsx.
 export const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
   {
-    element: <AppShell />,
+    element: <RequireAuth />,
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: "/dashboard", element: <DashboardPage /> },
-      { path: "/finance", element: <FinancePage /> },
-      { path: "/reservations", element: <ReservationsPage /> },
-      { path: "/rooms", element: <RoomsPage /> },
-      { path: "/guests", element: <GuestsPage /> },
-      { path: "/hr", element: <HrPage /> },
-      { path: "/payroll", element: <PayrollPage /> },
-      { path: "/purchases", element: <PurchasesPage /> },
-      { path: "/inventory", element: <InventoryPage /> },
-      { path: "/housekeeping", element: <HousekeepingPage /> },
-      { path: "/maintenance", element: <MaintenancePage /> },
-      { path: "/reports", element: <ReportsPage /> },
-      { path: "/notifications", element: <NotificationsPage /> },
-      { path: "/settings", element: <SettingsPage /> },
-      { path: "*", element: <Navigate to="/dashboard" replace /> },
+      {
+        element: <AppShell />,
+        children: [
+          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: "/dashboard", element: <DashboardPage /> },
+          { path: "/finance", element: <FinancePage /> },
+          { path: "/reservations", element: <ReservationsPage /> },
+          { path: "/rooms", element: <RoomsPage /> },
+          { path: "/guests", element: <GuestsPage /> },
+          { path: "/hr", element: <HrPage /> },
+          { path: "/payroll", element: <PayrollPage /> },
+          { path: "/purchases", element: <PurchasesPage /> },
+          { path: "/inventory", element: <InventoryPage /> },
+          { path: "/housekeeping", element: <HousekeepingPage /> },
+          { path: "/maintenance", element: <MaintenancePage /> },
+          { path: "/reports", element: <ReportsPage /> },
+          { path: "/notifications", element: <NotificationsPage /> },
+          { path: "/settings", element: <SettingsPage /> },
+          { path: "*", element: <Navigate to="/dashboard" replace /> },
+        ],
+      },
     ],
   },
 ]);

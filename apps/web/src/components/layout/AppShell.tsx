@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetTitle } from "@nimbalodge/ui";
 
 import { Sidebar } from "./Sidebar.js";
 import { Topbar } from "./Topbar.js";
+import { OfflineBanner } from "../common/offline-banner.js";
 import { useUIStore } from "../../stores/ui-store.js";
 
 // Port de nimbalodge-app/src/components/layout/AppShell.jsx : sidebar fixe en desktop, off-canvas
@@ -25,6 +26,7 @@ export function AppShell() {
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <OfflineBanner />
         <Topbar />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
