@@ -144,6 +144,18 @@ const BASE_PERMISSIONS = [
   { key: "notifications.mark-read", description: "Marquer ses notifications comme lues" },
   { key: "audit-logs.view", description: "Voir le journal d'audit" },
   { key: "finance.budget.check-overspend", description: "Vérifier les dépassements budgétaires et générer des alertes" },
+  // Phase 13 — format plat "resource.action", cohérent Phase 7-10.
+  { key: "warehouses.view", description: "Voir les entrepôts" },
+  { key: "warehouses.create", description: "Créer un entrepôt" },
+  { key: "warehouses.update", description: "Modifier un entrepôt" },
+  { key: "products.view", description: "Voir les produits et leur stock" },
+  { key: "products.create", description: "Créer un produit" },
+  { key: "products.update", description: "Modifier un produit" },
+  { key: "products.check-low-stock", description: "Vérifier les seuils de stock minimum et générer des alertes" },
+  { key: "stock-movements.view", description: "Voir les mouvements de stock" },
+  { key: "stock-movements.create", description: "Enregistrer une entrée/sortie/consommation/perte de stock" },
+  { key: "stock-movements.transfer", description: "Transférer du stock entre entrepôts" },
+  { key: "stock-movements.adjustment", description: "Ajuster un stock après inventaire physique" },
 ];
 
 async function main() {
@@ -354,6 +366,19 @@ async function main() {
     "notifications.mark-read",
     "audit-logs.view",
     "finance.budget.check-overspend",
+    // Phase 13 — HOTEL_ADMIN reçoit tout, même raisonnement que Phase 7-10 : aucun contrôle
+    // org-level identifié pour l'inventaire.
+    "warehouses.view",
+    "warehouses.create",
+    "warehouses.update",
+    "products.view",
+    "products.create",
+    "products.update",
+    "products.check-low-stock",
+    "stock-movements.view",
+    "stock-movements.create",
+    "stock-movements.transfer",
+    "stock-movements.adjustment",
   ]);
   await Promise.all(
     permissions

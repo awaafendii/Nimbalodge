@@ -32,6 +32,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { PayslipsModule } from "./modules/payslips/payslips.module";
 import { PermissionsModule } from "./modules/permissions/permissions.module";
+import { ProductsModule } from "./modules/products/products.module";
 import { PurchaseOrdersModule } from "./modules/purchase-orders/purchase-orders.module";
 import { PurchaseRequestsModule } from "./modules/purchase-requests/purchase-requests.module";
 import { ReportsModule } from "./modules/reports/reports.module";
@@ -40,8 +41,10 @@ import { RevenuesModule } from "./modules/revenues/revenues.module";
 import { RolesModule } from "./modules/roles/roles.module";
 import { RoomTypesModule } from "./modules/room-types/room-types.module";
 import { RoomsModule } from "./modules/rooms/rooms.module";
+import { StockMovementsModule } from "./modules/stock-movements/stock-movements.module";
 import { SuppliersModule } from "./modules/suppliers/suppliers.module";
 import { UsersModule } from "./modules/users/users.module";
+import { WarehousesModule } from "./modules/warehouses/warehouses.module";
 import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.module";
 
 @Module({
@@ -85,6 +88,9 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     ReportsModule,
     NotificationsModule,
     AuditLogsModule,
+    WarehousesModule,
+    StockMovementsModule,
+    ProductsModule,
     AuthModule,
   ],
   providers: [

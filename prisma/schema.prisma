@@ -31,6 +31,12 @@
 // AuditLog (§37, écrit par un AuditInterceptor global — organizationId/hotelId/userId en champs
 // LIBRES, sans FK, pour survivre à la suppression future de ce qu'ils référencent). Voir
 // docs/architecture/phase-12-notifications-audit.md.
+//
+// Phase 13 : Inventaire. Product/Warehouse (catalogues) + StockMovement (§24 — entrée/sortie/
+// transfert/ajustement/consommation/perte). Quantité en stock jamais dénormalisée, calculée à la
+// demande depuis StockMovement (même principe que le solde CashAccount, Phase 5). Alertes de seuil
+// minimum réutilisent NotificationsService.notifyUsersWithPermission() telle quelle (Phase 12).
+// Voir docs/architecture/phase-13-inventory.md.
 
 datasource db {
   provider = "postgresql"
@@ -105,6 +111,9 @@ model Hotel {
   maintenanceRequests                                 MaintenanceRequest[]
   maintenanceInterventions                             MaintenanceIntervention[]
   notifications                                        Notification[]
+  products                                              Product[]
+  warehouses                                            Warehouse[]
+  stockMovements                                        StockMovement[]
 
   @@unique([organizationId, slug])
   @@index([organizationId])
@@ -137,6 +146,7 @@ model Department {
   invoices    Invoice[]
   employees   Employee[]
   purchaseRequests PurchaseRequest[]
+  warehouses  Warehouse[]
 
   @@unique([hotelId, name])
   @@index([hotelId])
@@ -256,6 +266,7 @@ model User {
   maintenanceInterventionsCreated                                                  MaintenanceIntervention[] @relation("MaintenanceInterventionCreator")
   maintenanceInterventionsPerformed                                                 MaintenanceIntervention[] @relation("MaintenanceInterventionPerformer")
   notificationsReceived                                                              Notification[]           @relation("NotificationRecipient")
+  stockMovementsCreated                                                               StockMovement[]          @relation("StockMovementCreator")
 
   @@index([organizationId])
   @@index([hotelId])
@@ -1269,9 +1280,10 @@ model GoodsReceipt {
 
   createdAt DateTime @default(now())
 
-  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  createdBy     User               @relation("GoodsReceiptCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  lines         GoodsReceiptLine[]
+  purchaseOrder  PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  createdBy      User               @relation("GoodsReceiptCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  lines          GoodsReceiptLine[]
+  stockMovements StockMovement[]
 
   @@index([purchaseOrderId])
 }
@@ -1544,4 +1556,121 @@ model AuditLog {
   @@index([hotelId])
   @@index([userId])
   @@index([createdAt])
+}
+
+// ============================= INVENTAIRE (Phase 13) =============================
+
+/// "Produits" (§24) — catalogue par hôtel, même famille que Supplier/Department :
+/// `@@unique([hotelId, name])` (contrairement à Asset, Phase 10 — un Product est un article
+/// catalogue avec un nom censé être unique, pas un actif physique individuel dupliqué). `unit`/
+/// `category` en texte libre (kg/L/unité... varie par hôtel, même logique que Department.name).
+/// `minThreshold` optionnel — seuil global (pas par entrepôt, non détaillé au brief) déclenchant
+/// une alerte via `ProductsService.checkLowStock()`.
+model Product {
+  id           String   @id @default(cuid())
+  hotelId      String
+  name         String
+  sku          String?
+  unit         String?
+  category     String?
+  minThreshold Decimal? @db.Decimal(10, 2)
+  notes        String?
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel     Hotel           @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  movements StockMovement[]
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+}
+
+/// "Entrepôts" (§24), "lié aux départements" : `departmentId` optionnel — un entrepôt peut être
+/// rattaché à un département (ex. "Réserve Cuisine") ou transverse (ex. "Entrepôt général"), même
+/// principe que `CostCenter.departmentId` (Phase 4).
+model Warehouse {
+  id           String  @id @default(cuid())
+  hotelId      String
+  departmentId String?
+  name         String
+  location     String?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hotel        Hotel           @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  movementsOut StockMovement[] @relation("StockMovementWarehouse")
+  movementsIn  StockMovement[] @relation("StockMovementToWarehouse")
+
+  @@unique([hotelId, name])
+  @@index([hotelId])
+  @@index([departmentId])
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  TRANSFER
+  ADJUSTMENT
+  CONSUMPTION
+  LOSS
+}
+
+/// "Mouvements" (§24) — un seul modèle pour les 6 types nommés au brief, comme `Revenue`/`Expense`
+/// partagent un seul modèle via `type` plutôt que 6 tables. `OUT`/`CONSUMPTION`/`LOSS` ont le même
+/// effet mécanique (diminuent le stock du même entrepôt) mais restent des valeurs `type` distinctes
+/// — la distinction est catégorielle (reporting : sortie générale vs consommation vs casse/perte),
+/// pas structurelle, non davantage détaillée au brief.
+///
+/// `toWarehouseId` UNIQUEMENT renseigné pour `TRANSFER` (`warehouseId` = source, `toWarehouseId` =
+/// destination) — pas de second modèle "TransferLine", un seul enregistrement suffit. `quantity`
+/// TOUJOURS positive sauf pour `ADJUSTMENT` (signée : une correction d'inventaire physique peut
+/// aller dans les deux sens) — validé en service, pas en contrainte DB (même principe que le XOR
+/// caisse/banque d'`Expense`, Phase 5).
+///
+/// Quantité en stock JAMAIS dénormalisée sur `Product`/`Warehouse` — calculée à la demande en
+/// sommant les mouvements par entrepôt (`StockMovementsService.computeOnHand()`), même principe que
+/// le solde `CashAccount` (Phase 5) et la quantité reçue `PurchaseOrderLine` (Phase 9).
+///
+/// `goodsReceiptId` optionnel — complète (Phase 9) une réception fournisseur par un mouvement `IN`,
+/// mais CRÉATION MANUELLE uniquement : `GoodsReceiptsService.create()` (Phase 9) n'est PAS modifié
+/// pour déclencher automatiquement un mouvement (même discipline que Phase 10 n'ayant pas modifié
+/// `ReservationsService.checkOut()` pour créer une `HousekeepingTask` automatiquement).
+///
+/// Pas de dimensions analytiques (departmentId/activityId/costCenterId) — le rattachement
+/// département se fait au niveau `Warehouse`, pas répété ici (même principe que Reservation/
+/// PurchaseOrder sans dimensions propres, Phase 7/9).
+model StockMovement {
+  id             String            @id @default(cuid())
+  hotelId        String
+  productId      String
+  warehouseId    String
+  toWarehouseId  String?
+  type           StockMovementType
+  quantity       Decimal           @db.Decimal(10, 2)
+  date           DateTime          @default(now())
+  reference      String?
+  reason         String?
+  notes          String?
+  goodsReceiptId String?
+  createdById    String
+
+  createdAt DateTime @default(now())
+
+  hotel        Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse    Warehouse     @relation("StockMovementWarehouse", fields: [warehouseId], references: [id], onDelete: Restrict)
+  toWarehouse  Warehouse?    @relation("StockMovementToWarehouse", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+  goodsReceipt GoodsReceipt? @relation(fields: [goodsReceiptId], references: [id], onDelete: SetNull)
+  createdBy    User          @relation("StockMovementCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([hotelId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([toWarehouseId])
+  @@index([type])
 }
