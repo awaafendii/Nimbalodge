@@ -7,6 +7,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  DataTable,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -16,12 +17,24 @@ import {
   Icons,
   Input,
   Label,
+  type DataTableColumn,
 } from "@nimbalodge/ui";
 
 import { QueryState } from "../../components/common/query-state.js";
 import {
+  useBankAccounts,
+  useBankTransactions,
+  useCreateBankAccount,
+  useCreateBankTransaction,
+  useUpdateBankAccount,
+} from "../../hooks/use-bank-accounts.js";
+import { useHotels } from "../../hooks/use-hotels.js";
+import {
   useApproveExpense,
   useCashAccounts,
+  useCashTransactions,
+  useCreateCashAccount,
+  useCreateCashTransaction,
   useCreateExpense,
   useCreateRevenue,
   useExpenses,
@@ -29,8 +42,11 @@ import {
   useMarkExpensePaid,
   useRevenues,
   useSubmitExpense,
+  useUpdateCashAccount,
 } from "../../hooks/use-finance-entries.js";
-import type { Expense, PaymentMethod } from "../../services/finance-entries.js";
+import type { BankAccount, BankTransaction } from "../../services/bank-accounts.js";
+import type { CashAccount, CashTransaction, Expense, PaymentMethod, TransactionDirection } from "../../services/finance-entries.js";
+import { useAuthStore } from "../../stores/auth-store.js";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "BANK_TRANSFER", "MOBILE_MONEY", "CARD", "CHECK", "OTHER"];
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -51,6 +67,8 @@ const EXPENSE_STATUS_LABELS: Record<Expense["status"], string> = {
   BOOKED: "Comptabilisée",
 };
 
+const DIRECTION_LABELS: Record<TransactionDirection, string> = { IN: "Entrée", OUT: "Sortie" };
+
 // Module de référence pour le branchement frontend↔backend (Phase 14) : listes réelles (GET
 // /revenues, GET /expenses), création réelle, workflow d'approbation de dépense réel — aucune
 // donnée fabriquée. Catégories/caisses viennent de ce que l'hôtel a lui-même configuré (Paramètres,
@@ -61,6 +79,8 @@ export default function FinancePage() {
     <div className="flex flex-col gap-5">
       <RevenuesCard />
       <ExpensesCard />
+      <CashAccountsCard />
+      <BankAccountsCard />
     </div>
   );
 }
@@ -463,5 +483,633 @@ function CreateExpenseForm({ onDone }: { onDone: () => void }) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function CashAccountsCard() {
+  const user = useAuthStore((s) => s.user);
+  const cashAccounts = useCashAccounts();
+  const updateCashAccount = useUpdateCashAccount();
+  const hotels = useHotels();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [transactionsTarget, setTransactionsTarget] = useState<CashAccount | null>(null);
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Caisse</CardTitle>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Icons.IconPlus />
+              Ajouter une caisse
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <CreateCashAccountForm
+              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+              onDone={() => setCreateDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        <QueryState
+          isLoading={cashAccounts.isLoading}
+          error={cashAccounts.error}
+          data={cashAccounts.data}
+          onRetry={() => cashAccounts.refetch()}
+          isEmpty={(data) => data.length === 0}
+          emptyTitle="Aucune caisse configurée"
+          emptyDescription="Créez votre première caisse pour commencer à encaisser des recettes."
+          emptyAction={
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Icons.IconPlus />
+              Ajouter une caisse
+            </Button>
+          }
+        >
+          {(data) => {
+            const columns: DataTableColumn<CashAccount>[] = [
+              {
+                id: "name",
+                header: "Nom",
+                sortValue: (account) => account.name.toLowerCase(),
+                cell: (account) => (
+                  <div className="flex items-center gap-2">
+                    <span className="font-[var(--fw-subtitle-strong)] text-sm">{account.name}</span>
+                    {account.code ? <Badge variant="secondary">{account.code}</Badge> : null}
+                    {!account.isActive ? <Badge variant="outline">Désactivée</Badge> : null}
+                  </div>
+                ),
+              },
+              {
+                id: "balance",
+                header: "Solde",
+                align: "right",
+                sortValue: (account) => Number(account.balance),
+                cell: (account) => fmtGNF(Number(account.balance)),
+              },
+              {
+                id: "actions",
+                header: "",
+                align: "right",
+                cell: (account) => (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setTransactionsTarget(account)}>
+                      Transactions
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateCashAccount.isPending}
+                      onClick={() =>
+                        updateCashAccount.mutate({ id: account.id, input: { isActive: !account.isActive } })
+                      }
+                    >
+                      {account.isActive ? "Désactiver" : "Réactiver"}
+                    </Button>
+                  </div>
+                ),
+              },
+            ];
+            return (
+              <DataTable
+                columns={columns}
+                data={data}
+                getRowId={(account) => account.id}
+                searchableText={(account) => `${account.name} ${account.code ?? ""}`}
+                searchPlaceholder="Rechercher une caisse…"
+                emptyMessage="Aucune caisse ne correspond à cette recherche."
+              />
+            );
+          }}
+        </QueryState>
+      </CardContent>
+
+      <Dialog open={transactionsTarget !== null} onOpenChange={(open) => !open && setTransactionsTarget(null)}>
+        <DialogContent className="max-w-lg">
+          {transactionsTarget ? (
+            <CashTransactionsView account={transactionsTarget} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function CreateCashAccountForm({
+  hotelOptions,
+  onDone,
+}: {
+  hotelOptions: { id: string; name: string }[];
+  onDone: () => void;
+}) {
+  const createCashAccount = useCreateCashAccount();
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [openingBalance, setOpeningBalance] = useState("");
+  const [hotelId, setHotelId] = useState("");
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!name) return;
+    createCashAccount.mutate(
+      {
+        name,
+        code: code || undefined,
+        openingBalance: openingBalance ? Number(openingBalance) : undefined,
+        hotelId: hotelId || undefined,
+      },
+      { onSuccess: onDone }
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Ajouter une caisse</DialogTitle>
+      </DialogHeader>
+
+      {hotelOptions.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="cash-account-hotel">Hôtel</Label>
+          <select
+            id="cash-account-hotel"
+            required
+            value={hotelId}
+            onChange={(event) => setHotelId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner un hôtel
+            </option>
+            {hotelOptions.map((hotel) => (
+              <option key={hotel.id} value={hotel.id}>
+                {hotel.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="cash-account-name">Nom</Label>
+        <Input id="cash-account-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="cash-account-code">Code (optionnel)</Label>
+          <Input id="cash-account-code" value={code} onChange={(e) => setCode(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="cash-account-opening">Solde d'ouverture (optionnel, GNF)</Label>
+          <Input
+            id="cash-account-opening"
+            type="number"
+            min={0}
+            step="0.01"
+            value={openingBalance}
+            onChange={(e) => setOpeningBalance(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {createCashAccount.isError ? (
+        <p className="text-sm text-destructive">
+          {createCashAccount.error instanceof Error ? createCashAccount.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <DialogFooter>
+        <Button type="submit" disabled={createCashAccount.isPending}>
+          {createCashAccount.isPending ? "Création…" : "Créer"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function CashTransactionsView({ account }: { account: CashAccount }) {
+  const transactions = useCashTransactions(account.id);
+  const createTransaction = useCreateCashTransaction();
+  const [direction, setDirection] = useState<TransactionDirection>("IN");
+  const [amount, setAmount] = useState("");
+  const [label, setLabel] = useState("");
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const parsedAmount = Number(amount);
+    if (!label || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    createTransaction.mutate(
+      { cashAccountId: account.id, input: { direction, amount: parsedAmount, label } },
+      { onSuccess: () => { setAmount(""); setLabel(""); } }
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Transactions — {account.name}</DialogTitle>
+      </DialogHeader>
+
+      <p className="text-sm text-muted-foreground">
+        Solde actuel : <span className="font-[var(--fw-subtitle-strong)] text-foreground">{fmtGNF(Number(account.balance))}</span>
+      </p>
+
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="cash-tx-direction">Sens</Label>
+          <select
+            id="cash-tx-direction"
+            value={direction}
+            onChange={(event) => setDirection(event.target.value as TransactionDirection)}
+            className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            {(Object.keys(DIRECTION_LABELS) as TransactionDirection[]).map((value) => (
+              <option key={value} value={value}>
+                {DIRECTION_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="cash-tx-amount">Montant</Label>
+          <Input
+            id="cash-tx-amount"
+            type="number"
+            min={0.01}
+            step="0.01"
+            required
+            className="w-32"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Label htmlFor="cash-tx-label">Libellé</Label>
+          <Input id="cash-tx-label" required value={label} onChange={(e) => setLabel(e.target.value)} />
+        </div>
+        <Button type="submit" size="sm" disabled={createTransaction.isPending}>
+          {createTransaction.isPending ? "…" : "Ajouter"}
+        </Button>
+      </form>
+      {createTransaction.isError ? (
+        <p className="text-sm text-destructive">
+          {createTransaction.error instanceof Error ? createTransaction.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <QueryState isLoading={transactions.isLoading} error={transactions.error} data={transactions.data}>
+        {(data) =>
+          data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune transaction enregistrée.</p>
+          ) : (
+            <ul className="flex max-h-72 flex-col divide-y divide-border overflow-y-auto">
+              {[...data].reverse().map((transaction: CashTransaction) => (
+                <li key={transaction.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate">{transaction.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(transaction.date).toLocaleDateString("fr-FR")}
+                    </p>
+                  </div>
+                  <span
+                    className={
+                      transaction.direction === "IN"
+                        ? "font-[var(--fw-subtitle-strong)] text-good"
+                        : "font-[var(--fw-subtitle-strong)] text-critical"
+                    }
+                  >
+                    {transaction.direction === "IN" ? "+" : "-"}
+                    {fmtGNF(Number(transaction.amount))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </QueryState>
+    </div>
+  );
+}
+
+function BankAccountsCard() {
+  const user = useAuthStore((s) => s.user);
+  const bankAccounts = useBankAccounts();
+  const updateBankAccount = useUpdateBankAccount();
+  const hotels = useHotels();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [transactionsTarget, setTransactionsTarget] = useState<BankAccount | null>(null);
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Banque</CardTitle>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Icons.IconPlus />
+              Ajouter un compte bancaire
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <CreateBankAccountForm
+              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+              onDone={() => setCreateDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        <QueryState
+          isLoading={bankAccounts.isLoading}
+          error={bankAccounts.error}
+          data={bankAccounts.data}
+          onRetry={() => bankAccounts.refetch()}
+          isEmpty={(data) => data.length === 0}
+          emptyTitle="Aucun compte bancaire configuré"
+          emptyDescription="Créez votre premier compte bancaire pour commencer à suivre vos virements."
+          emptyAction={
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Icons.IconPlus />
+              Ajouter un compte bancaire
+            </Button>
+          }
+        >
+          {(data) => {
+            const columns: DataTableColumn<BankAccount>[] = [
+              {
+                id: "name",
+                header: "Nom",
+                sortValue: (account) => account.name.toLowerCase(),
+                cell: (account) => (
+                  <div className="flex items-center gap-2">
+                    <span className="font-[var(--fw-subtitle-strong)] text-sm">{account.name}</span>
+                    {!account.isActive ? <Badge variant="outline">Désactivé</Badge> : null}
+                  </div>
+                ),
+              },
+              {
+                id: "bank",
+                header: "Banque",
+                cell: (account) =>
+                  [account.bankName, account.accountNumber].filter(Boolean).join(" · ") || "—",
+              },
+              {
+                id: "balance",
+                header: "Solde",
+                align: "right",
+                sortValue: (account) => Number(account.balance),
+                cell: (account) => fmtGNF(Number(account.balance)),
+              },
+              {
+                id: "actions",
+                header: "",
+                align: "right",
+                cell: (account) => (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setTransactionsTarget(account)}>
+                      Transactions
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateBankAccount.isPending}
+                      onClick={() =>
+                        updateBankAccount.mutate({ id: account.id, input: { isActive: !account.isActive } })
+                      }
+                    >
+                      {account.isActive ? "Désactiver" : "Réactiver"}
+                    </Button>
+                  </div>
+                ),
+              },
+            ];
+            return (
+              <DataTable
+                columns={columns}
+                data={data}
+                getRowId={(account) => account.id}
+                searchableText={(account) => `${account.name} ${account.bankName ?? ""}`}
+                searchPlaceholder="Rechercher un compte bancaire…"
+                emptyMessage="Aucun compte bancaire ne correspond à cette recherche."
+              />
+            );
+          }}
+        </QueryState>
+      </CardContent>
+
+      <Dialog open={transactionsTarget !== null} onOpenChange={(open) => !open && setTransactionsTarget(null)}>
+        <DialogContent className="max-w-lg">
+          {transactionsTarget ? <BankTransactionsView account={transactionsTarget} /> : null}
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function CreateBankAccountForm({
+  hotelOptions,
+  onDone,
+}: {
+  hotelOptions: { id: string; name: string }[];
+  onDone: () => void;
+}) {
+  const createBankAccount = useCreateBankAccount();
+  const [name, setName] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [openingBalance, setOpeningBalance] = useState("");
+  const [hotelId, setHotelId] = useState("");
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!name) return;
+    createBankAccount.mutate(
+      {
+        name,
+        bankName: bankName || undefined,
+        accountNumber: accountNumber || undefined,
+        openingBalance: openingBalance ? Number(openingBalance) : undefined,
+        hotelId: hotelId || undefined,
+      },
+      { onSuccess: onDone }
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Ajouter un compte bancaire</DialogTitle>
+      </DialogHeader>
+
+      {hotelOptions.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bank-account-hotel">Hôtel</Label>
+          <select
+            id="bank-account-hotel"
+            required
+            value={hotelId}
+            onChange={(event) => setHotelId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner un hôtel
+            </option>
+            {hotelOptions.map((hotel) => (
+              <option key={hotel.id} value={hotel.id}>
+                {hotel.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="bank-account-name">Nom</Label>
+        <Input id="bank-account-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bank-account-bank-name">Banque (optionnel)</Label>
+          <Input id="bank-account-bank-name" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bank-account-number">N° de compte (optionnel)</Label>
+          <Input id="bank-account-number" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="bank-account-opening">Solde d'ouverture (optionnel, GNF)</Label>
+        <Input
+          id="bank-account-opening"
+          type="number"
+          min={0}
+          step="0.01"
+          value={openingBalance}
+          onChange={(e) => setOpeningBalance(e.target.value)}
+        />
+      </div>
+
+      {createBankAccount.isError ? (
+        <p className="text-sm text-destructive">
+          {createBankAccount.error instanceof Error ? createBankAccount.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <DialogFooter>
+        <Button type="submit" disabled={createBankAccount.isPending}>
+          {createBankAccount.isPending ? "Création…" : "Créer"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function BankTransactionsView({ account }: { account: BankAccount }) {
+  const transactions = useBankTransactions(account.id);
+  const createTransaction = useCreateBankTransaction();
+  const [direction, setDirection] = useState<TransactionDirection>("IN");
+  const [amount, setAmount] = useState("");
+  const [label, setLabel] = useState("");
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const parsedAmount = Number(amount);
+    if (!label || !Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    createTransaction.mutate(
+      { bankAccountId: account.id, input: { direction, amount: parsedAmount, label } },
+      { onSuccess: () => { setAmount(""); setLabel(""); } }
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Transactions — {account.name}</DialogTitle>
+      </DialogHeader>
+
+      <p className="text-sm text-muted-foreground">
+        Solde actuel : <span className="font-[var(--fw-subtitle-strong)] text-foreground">{fmtGNF(Number(account.balance))}</span>
+      </p>
+
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bank-tx-direction">Sens</Label>
+          <select
+            id="bank-tx-direction"
+            value={direction}
+            onChange={(event) => setDirection(event.target.value as TransactionDirection)}
+            className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            {(Object.keys(DIRECTION_LABELS) as TransactionDirection[]).map((value) => (
+              <option key={value} value={value}>
+                {DIRECTION_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bank-tx-amount">Montant</Label>
+          <Input
+            id="bank-tx-amount"
+            type="number"
+            min={0.01}
+            step="0.01"
+            required
+            className="w-32"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Label htmlFor="bank-tx-label">Libellé</Label>
+          <Input id="bank-tx-label" required value={label} onChange={(e) => setLabel(e.target.value)} />
+        </div>
+        <Button type="submit" size="sm" disabled={createTransaction.isPending}>
+          {createTransaction.isPending ? "…" : "Ajouter"}
+        </Button>
+      </form>
+      {createTransaction.isError ? (
+        <p className="text-sm text-destructive">
+          {createTransaction.error instanceof Error ? createTransaction.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <QueryState isLoading={transactions.isLoading} error={transactions.error} data={transactions.data}>
+        {(data) =>
+          data.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune transaction enregistrée.</p>
+          ) : (
+            <ul className="flex max-h-72 flex-col divide-y divide-border overflow-y-auto">
+              {[...data].reverse().map((transaction: BankTransaction) => (
+                <li key={transaction.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate">{transaction.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(transaction.date).toLocaleDateString("fr-FR")}
+                    </p>
+                  </div>
+                  <span
+                    className={
+                      transaction.direction === "IN"
+                        ? "font-[var(--fw-subtitle-strong)] text-good"
+                        : "font-[var(--fw-subtitle-strong)] text-critical"
+                    }
+                  >
+                    {transaction.direction === "IN" ? "+" : "-"}
+                    {fmtGNF(Number(transaction.amount))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </QueryState>
+    </div>
   );
 }

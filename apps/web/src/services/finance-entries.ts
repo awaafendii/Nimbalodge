@@ -21,9 +21,50 @@ export interface CashAccount {
   code: string | null;
   openingBalance: string;
   currency: string;
+  managerId: string | null;
   isActive: boolean;
   balance: string;
   createdAt: string;
+}
+
+export type TransactionDirection = "IN" | "OUT";
+
+export interface CashTransaction {
+  id: string;
+  cashAccountId: string;
+  direction: TransactionDirection;
+  amount: string;
+  label: string;
+  date: string;
+  revenueId: string | null;
+  expenseId: string | null;
+  paymentId: string | null;
+  creditNoteId: string | null;
+  createdById: string;
+  createdAt: string;
+}
+
+export interface CreateCashAccountInput {
+  name: string;
+  code?: string;
+  openingBalance?: number;
+  currency?: string;
+  managerId?: string;
+  hotelId?: string;
+}
+
+export interface UpdateCashAccountInput {
+  name?: string;
+  code?: string;
+  managerId?: string;
+  isActive?: boolean;
+}
+
+export interface CreateCashTransactionInput {
+  direction: TransactionDirection;
+  amount: number;
+  label: string;
+  date?: string;
 }
 
 export interface Revenue {
@@ -61,6 +102,25 @@ export function listFinancialCategories(): Promise<FinancialCategory[]> {
 
 export function listCashAccounts(): Promise<CashAccount[]> {
   return apiClient.get<CashAccount[]>("/cash-accounts");
+}
+
+export function createCashAccount(input: CreateCashAccountInput): Promise<CashAccount> {
+  return apiClient.post<CashAccount>("/cash-accounts", input);
+}
+
+export function updateCashAccount(id: string, input: UpdateCashAccountInput): Promise<CashAccount> {
+  return apiClient.patch<CashAccount>(`/cash-accounts/${id}`, input);
+}
+
+export function listCashTransactions(cashAccountId: string): Promise<CashTransaction[]> {
+  return apiClient.get<CashTransaction[]>(`/cash-accounts/${cashAccountId}/transactions`);
+}
+
+export function createCashTransaction(
+  cashAccountId: string,
+  input: CreateCashTransactionInput
+): Promise<CashTransaction> {
+  return apiClient.post<CashTransaction>(`/cash-accounts/${cashAccountId}/transactions`, input);
 }
 
 export function listRevenues(): Promise<Revenue[]> {

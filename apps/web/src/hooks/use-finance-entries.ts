@@ -10,6 +10,48 @@ export function useCashAccounts() {
   return useQuery({ queryKey: ["cash-accounts"], queryFn: financeEntries.listCashAccounts });
 }
 
+export function useCreateCashAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: financeEntries.CreateCashAccountInput) => financeEntries.createCashAccount(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
+  });
+}
+
+export function useUpdateCashAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: financeEntries.UpdateCashAccountInput }) =>
+      financeEntries.updateCashAccount(id, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cash-accounts"] }),
+  });
+}
+
+export function useCashTransactions(cashAccountId: string | null) {
+  return useQuery({
+    queryKey: ["cash-accounts", cashAccountId, "transactions"],
+    queryFn: () => financeEntries.listCashTransactions(cashAccountId!),
+    enabled: cashAccountId !== null,
+  });
+}
+
+export function useCreateCashTransaction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      cashAccountId,
+      input,
+    }: {
+      cashAccountId: string;
+      input: financeEntries.CreateCashTransactionInput;
+    }) => financeEntries.createCashTransaction(cashAccountId, input),
+    onSuccess: (_, { cashAccountId }) => {
+      queryClient.invalidateQueries({ queryKey: ["cash-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-accounts", cashAccountId, "transactions"] });
+    },
+  });
+}
+
 export function useRevenues() {
   return useQuery({ queryKey: ["revenues"], queryFn: financeEntries.listRevenues });
 }
