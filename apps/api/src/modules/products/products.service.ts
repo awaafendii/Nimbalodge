@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { StockMovementsService } from "../stock-movements/stock-movements.service";
@@ -29,7 +30,7 @@ export class ProductsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const product = await this.findWithHotelOrThrow(id);
-    this.assertInScope(product.hotel.organizationId, product.hotelId, requester);
+    assertInScope(product.hotel.organizationId, product.hotelId, requester);
     return toProductResponse(product);
   }
 
@@ -70,7 +71,7 @@ export class ProductsService {
 
   async update(id: string, dto: UpdateProductDto, requester: AuthenticatedUser) {
     const product = await this.findWithHotelOrThrow(id);
-    this.assertInScope(product.hotel.organizationId, product.hotelId, requester);
+    assertInScope(product.hotel.organizationId, product.hotelId, requester);
 
     if (dto.name && dto.name !== product.name) {
       const existing = await this.prisma.product.findUnique({
@@ -88,7 +89,7 @@ export class ProductsService {
   // Quantité en stock jamais dénormalisée sur Product (voir StockMovementsService.computeOnHand).
   async getStock(id: string, requester: AuthenticatedUser) {
     const product = await this.findWithHotelOrThrow(id);
-    this.assertInScope(product.hotel.organizationId, product.hotelId, requester);
+    assertInScope(product.hotel.organizationId, product.hotelId, requester);
 
     const balances = await this.stockMovementsService.computeOnHand(product.hotelId, id);
     const warehouses = await this.prisma.warehouse.findMany({ where: { id: { in: [...balances.keys()] } } });
@@ -146,14 +147,5 @@ export class ProductsService {
       throw new NotFoundException("Produit introuvable");
     }
     return product;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

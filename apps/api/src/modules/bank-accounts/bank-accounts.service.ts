@@ -3,6 +3,7 @@ import { Prisma, type BankAccount } from "@prisma/client";
 import type { Decimal } from "@prisma/client/runtime/library";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { toBankAccountResponse } from "./dto/bank-account-response.dto";
 import { CreateBankAccountDto } from "./dto/create-bank-account.dto";
@@ -25,7 +26,7 @@ export class BankAccountsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
     return this.withBalance(account);
   }
 
@@ -66,7 +67,7 @@ export class BankAccountsService {
 
   async update(id: string, dto: UpdateBankAccountDto, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
 
     if (dto.name && dto.name !== account.name) {
       const existing = await this.prisma.bankAccount.findUnique({
@@ -83,13 +84,13 @@ export class BankAccountsService {
 
   async listTransactions(id: string, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
     return this.prisma.bankTransaction.findMany({ where: { bankAccountId: id }, orderBy: { date: "asc" } });
   }
 
   async addTransaction(id: string, dto: CreateBankTransactionDto, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
 
     return this.prisma.bankTransaction.create({
       data: {
@@ -130,14 +131,5 @@ export class BankAccountsService {
       throw new NotFoundException("Compte bancaire introuvable");
     }
     return account;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

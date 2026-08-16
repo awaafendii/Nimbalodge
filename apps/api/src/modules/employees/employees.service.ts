@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateEmployeeDto } from "./dto/create-employee.dto";
 import { toEmployeeResponse } from "./dto/employee-response.dto";
@@ -24,7 +25,7 @@ export class EmployeesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const employee = await this.findWithHotelOrThrow(id);
-    this.assertInScope(employee.hotel.organizationId, employee.hotelId, requester);
+    assertInScope(employee.hotel.organizationId, employee.hotelId, requester);
     return toEmployeeResponse(employee);
   }
 
@@ -68,7 +69,7 @@ export class EmployeesService {
 
   async update(id: string, dto: UpdateEmployeeDto, requester: AuthenticatedUser) {
     const employee = await this.findWithHotelOrThrow(id);
-    this.assertInScope(employee.hotel.organizationId, employee.hotelId, requester);
+    assertInScope(employee.hotel.organizationId, employee.hotelId, requester);
 
     await this.validateReferences(employee.hotelId, dto, employee.id);
 
@@ -111,14 +112,5 @@ export class EmployeesService {
       throw new NotFoundException("Employé introuvable");
     }
     return employee;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

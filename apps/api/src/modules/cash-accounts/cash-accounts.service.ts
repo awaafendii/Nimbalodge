@@ -3,6 +3,7 @@ import { Prisma, type CashAccount } from "@prisma/client";
 import type { Decimal } from "@prisma/client/runtime/library";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { toCashAccountResponse } from "./dto/cash-account-response.dto";
 import { CreateCashAccountDto } from "./dto/create-cash-account.dto";
@@ -25,7 +26,7 @@ export class CashAccountsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
     return this.withBalance(account);
   }
 
@@ -65,7 +66,7 @@ export class CashAccountsService {
 
   async update(id: string, dto: UpdateCashAccountDto, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
 
     if (dto.name && dto.name !== account.name) {
       const existing = await this.prisma.cashAccount.findUnique({
@@ -82,13 +83,13 @@ export class CashAccountsService {
 
   async listTransactions(id: string, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
     return this.prisma.cashTransaction.findMany({ where: { cashAccountId: id }, orderBy: { date: "asc" } });
   }
 
   async addTransaction(id: string, dto: CreateCashTransactionDto, requester: AuthenticatedUser) {
     const account = await this.findWithHotelOrThrow(id);
-    this.assertInScope(account.hotel.organizationId, account.hotelId, requester);
+    assertInScope(account.hotel.organizationId, account.hotelId, requester);
 
     return this.prisma.cashTransaction.create({
       data: {
@@ -129,14 +130,5 @@ export class CashAccountsService {
       throw new NotFoundException("Caisse introuvable");
     }
     return account;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

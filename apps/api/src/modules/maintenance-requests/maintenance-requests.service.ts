@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { MaintenanceRequest, MaintenanceRequestStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateMaintenanceRequestDto } from "./dto/create-maintenance-request.dto";
 import { toMaintenanceRequestResponse } from "./dto/maintenance-request-response.dto";
@@ -26,7 +27,7 @@ export class MaintenanceRequestsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const maintenanceRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(maintenanceRequest.hotel.organizationId, maintenanceRequest.hotelId, requester);
+    assertInScope(maintenanceRequest.hotel.organizationId, maintenanceRequest.hotelId, requester);
     return toMaintenanceRequestResponse(maintenanceRequest);
   }
 
@@ -60,7 +61,7 @@ export class MaintenanceRequestsService {
 
   async update(id: string, dto: UpdateMaintenanceRequestDto, requester: AuthenticatedUser) {
     const maintenanceRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(maintenanceRequest.hotel.organizationId, maintenanceRequest.hotelId, requester);
+    assertInScope(maintenanceRequest.hotel.organizationId, maintenanceRequest.hotelId, requester);
     if (maintenanceRequest.status !== "PENDING") {
       throw new BadRequestException("Seule une demande en attente peut être modifiée");
     }
@@ -110,7 +111,7 @@ export class MaintenanceRequestsService {
     action: string
   ): Promise<MaintenanceRequest> {
     const maintenanceRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(maintenanceRequest.hotel.organizationId, maintenanceRequest.hotelId, requester);
+    assertInScope(maintenanceRequest.hotel.organizationId, maintenanceRequest.hotelId, requester);
     if (maintenanceRequest.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${maintenanceRequest.status} (attendu : ${expectedStatus})`
@@ -143,14 +144,5 @@ export class MaintenanceRequestsService {
       throw new NotFoundException("Demande de maintenance introuvable");
     }
     return maintenanceRequest;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

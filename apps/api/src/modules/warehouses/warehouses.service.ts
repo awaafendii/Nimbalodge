@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateWarehouseDto } from "./dto/create-warehouse.dto";
 import { toWarehouseResponse } from "./dto/warehouse-response.dto";
@@ -24,7 +25,7 @@ export class WarehousesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const warehouse = await this.findWithHotelOrThrow(id);
-    this.assertInScope(warehouse.hotel.organizationId, warehouse.hotelId, requester);
+    assertInScope(warehouse.hotel.organizationId, warehouse.hotelId, requester);
     return toWarehouseResponse(warehouse);
   }
 
@@ -64,7 +65,7 @@ export class WarehousesService {
 
   async update(id: string, dto: UpdateWarehouseDto, requester: AuthenticatedUser) {
     const warehouse = await this.findWithHotelOrThrow(id);
-    this.assertInScope(warehouse.hotel.organizationId, warehouse.hotelId, requester);
+    assertInScope(warehouse.hotel.organizationId, warehouse.hotelId, requester);
 
     await this.validateReferences(warehouse.hotelId, dto);
 
@@ -96,14 +97,5 @@ export class WarehousesService {
       throw new NotFoundException("Entrepôt introuvable");
     }
     return warehouse;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

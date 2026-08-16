@@ -31,7 +31,7 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
 
 export { badgeVariants };
 
-// --- StatusBadge : port du comportement de nimbalodge-app/src/components/ui/Chip.jsx ---
+// --- StatusBadge : port du comportement de docs/legacy/nimbalodge-app/src/components/ui/Chip.jsx ---
 // Mappe un statut métier (paid/pending/late/good/warn/crit/vacant/neutral) vers un libellé FR et
 // une variante de couleur, pour rester compatible avec le vocabulaire de statut déjà utilisé dans
 // le prototype (factures, appartements, locataires) au moment de rebrancher ces pages.

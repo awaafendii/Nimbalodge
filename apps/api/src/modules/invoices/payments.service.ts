@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { InvoicesService } from "./invoices.service";
@@ -14,7 +15,7 @@ export class PaymentsService {
 
   async list(invoiceId: string, requester: AuthenticatedUser) {
     const invoice = await this.invoicesService.findFullOrThrow(invoiceId);
-    this.invoicesService.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
     return this.prisma.payment.findMany({ where: { invoiceId }, orderBy: { date: "asc" } });
   }
 
@@ -22,7 +23,7 @@ export class PaymentsService {
   // docs/architecture/phase-6-billing.md, décision 3).
   async create(invoiceId: string, dto: CreatePaymentDto, requester: AuthenticatedUser) {
     const invoice = await this.invoicesService.findFullOrThrow(invoiceId);
-    this.invoicesService.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
 
     if (invoice.status !== "ISSUED" && invoice.status !== "PARTIALLY_PAID") {
       throw new BadRequestException("La facture doit être émise et non soldée pour recevoir un paiement");

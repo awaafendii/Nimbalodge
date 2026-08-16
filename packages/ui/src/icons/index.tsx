@@ -1,6 +1,6 @@
 import * as React from "react";
 
-// Port TSX verbatim de nimbalodge-app/src/components/icons/Icons.jsx — set d'icônes maison,
+// Port TSX verbatim de docs/legacy/nimbalodge-app/src/components/icons/Icons.jsx — set d'icônes maison,
 // distinct des icônes lucide-react utilisées à l'intérieur des primitives shadcn (pas de conflit,
 // les deux coexistent : lucide pour le chrome des composants shadcn, ce set pour la nav/le métier).
 

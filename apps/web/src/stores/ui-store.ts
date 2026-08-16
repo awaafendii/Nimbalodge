@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-// Porte la logique de nimbalodge-app/src/state/AppContext.jsx (theme + toggle sidebar) sur
+// Porte la logique de docs/legacy/nimbalodge-app/src/state/AppContext.jsx (theme + toggle sidebar) sur
 // Zustand au lieu d'un useReducer + Context React. Seul état UI transverse pour l'instant — aucun
 // état métier (recettes/dépenses/etc.) tant que l'API n'existe pas (Phase 2+).
 

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { PurchaseRequest, PurchaseRequestStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreatePurchaseRequestDto } from "./dto/create-purchase-request.dto";
 import { toPurchaseRequestResponse } from "./dto/purchase-request-response.dto";
@@ -26,7 +27,7 @@ export class PurchaseRequestsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const purchaseRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(purchaseRequest.hotel.organizationId, purchaseRequest.hotelId, requester);
+    assertInScope(purchaseRequest.hotel.organizationId, purchaseRequest.hotelId, requester);
     return toPurchaseRequestResponse(purchaseRequest);
   }
 
@@ -61,7 +62,7 @@ export class PurchaseRequestsService {
 
   async update(id: string, dto: UpdatePurchaseRequestDto, requester: AuthenticatedUser) {
     const purchaseRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(purchaseRequest.hotel.organizationId, purchaseRequest.hotelId, requester);
+    assertInScope(purchaseRequest.hotel.organizationId, purchaseRequest.hotelId, requester);
     if (purchaseRequest.status !== "PENDING") {
       throw new BadRequestException("Seule une demande en attente peut être modifiée");
     }
@@ -111,7 +112,7 @@ export class PurchaseRequestsService {
     action: string
   ): Promise<PurchaseRequest> {
     const purchaseRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(purchaseRequest.hotel.organizationId, purchaseRequest.hotelId, requester);
+    assertInScope(purchaseRequest.hotel.organizationId, purchaseRequest.hotelId, requester);
     if (purchaseRequest.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${purchaseRequest.status} (attendu : ${expectedStatus})`
@@ -138,14 +139,5 @@ export class PurchaseRequestsService {
       throw new NotFoundException("Demande d'achat introuvable");
     }
     return purchaseRequest;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

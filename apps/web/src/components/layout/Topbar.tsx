@@ -19,7 +19,7 @@ import { useLogout } from "../../hooks/use-auth.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 import { useUIStore } from "../../stores/ui-store.js";
 
-// Port de nimbalodge-app/src/components/layout/Topbar.jsx : titre/sous-titre dérivés de la route
+// Port de docs/legacy/nimbalodge-app/src/components/layout/Topbar.jsx : titre/sous-titre dérivés de la route
 // courante, burger mobile, menu utilisateur — piloté par l'utilisateur réel (GET /auth/me).
 // L'icône "sync" (spinner) reflète useIsFetching() : indicateur d'activité réseau en arrière-plan,
 // pas une file de synchronisation offline (non implémentée, voir docs/architecture/phase-14-frontend-connection.md).

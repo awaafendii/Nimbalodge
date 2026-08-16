@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import * as bcrypt from "bcryptjs";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { toUserResponse, type UserResponse } from "./dto/user-response.dto";
@@ -29,7 +30,7 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException("Utilisateur introuvable");
     }
-    this.assertInScope(user.organizationId, user.hotelId, requester);
+    assertInScope(user.organizationId, user.hotelId, requester);
     return toUserResponse(user);
   }
 
@@ -76,14 +77,5 @@ export class UsersService {
     });
 
     return toUserResponse(user);
-  }
-
-  private assertInScope(organizationId: string, hotelId: string | null, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

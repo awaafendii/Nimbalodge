@@ -7,7 +7,7 @@ import { useLogout } from "../../hooks/use-auth.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 import { useUIStore, type Theme } from "../../stores/ui-store.js";
 
-// Port structurel de nimbalodge-app/src/components/layout/Sidebar.jsx (marque, groupes de nav,
+// Port structurel de docs/legacy/nimbalodge-app/src/components/layout/Sidebar.jsx (marque, groupes de nav,
 // toggle de thème) vers Tailwind + shadcn. Nav filtrée par permission réelle (RBAC backend, Phase
 // 3) — un item sans `permission` (Tableau de bord) reste toujours visible.
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {

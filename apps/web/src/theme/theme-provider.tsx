@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import { useUIStore } from "../stores/ui-store.js";
 
-// Reproduit l'effet de nimbalodge-app/src/state/AppContext.jsx : "auto" retire l'attribut
+// Reproduit l'effet de docs/legacy/nimbalodge-app/src/state/AppContext.jsx : "auto" retire l'attribut
 // data-theme (tokens.css bascule alors via @media prefers-color-scheme), sinon on le fixe
 // explicitement pour forcer clair/sombre.
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

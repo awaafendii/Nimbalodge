@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateDepartmentDto } from "./dto/create-department.dto";
 import { toDepartmentResponse } from "./dto/department-response.dto";
@@ -25,7 +26,7 @@ export class DepartmentsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const department = await this.findWithHotelOrThrow(id);
-    this.assertInScope(department.hotel.organizationId, department.hotelId, requester);
+    assertInScope(department.hotel.organizationId, department.hotelId, requester);
     return toDepartmentResponse(department);
   }
 
@@ -68,7 +69,7 @@ export class DepartmentsService {
 
   async update(id: string, dto: UpdateDepartmentDto, requester: AuthenticatedUser) {
     const department = await this.findWithHotelOrThrow(id);
-    this.assertInScope(department.hotel.organizationId, department.hotelId, requester);
+    assertInScope(department.hotel.organizationId, department.hotelId, requester);
 
     if (dto.managerId) {
       await this.assertManagerInHotel(dto.managerId, department.hotelId);
@@ -88,7 +89,7 @@ export class DepartmentsService {
 
   async assignUser(departmentId: string, userId: string, requester: AuthenticatedUser) {
     const department = await this.findWithHotelOrThrow(departmentId);
-    this.assertInScope(department.hotel.organizationId, department.hotelId, requester);
+    assertInScope(department.hotel.organizationId, department.hotelId, requester);
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.hotelId !== department.hotelId) {
@@ -105,7 +106,7 @@ export class DepartmentsService {
 
   async removeUser(departmentId: string, userId: string, requester: AuthenticatedUser) {
     const department = await this.findWithHotelOrThrow(departmentId);
-    this.assertInScope(department.hotel.organizationId, department.hotelId, requester);
+    assertInScope(department.hotel.organizationId, department.hotelId, requester);
 
     await this.prisma.userDepartment.deleteMany({ where: { userId, departmentId } });
     return { success: true };
@@ -123,15 +124,6 @@ export class DepartmentsService {
     const manager = await this.prisma.user.findUnique({ where: { id: managerId } });
     if (!manager || manager.hotelId !== hotelId) {
       throw new BadRequestException("Le manager doit appartenir au même hôtel que le département");
-    }
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
     }
   }
 }

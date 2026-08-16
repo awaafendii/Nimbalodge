@@ -3,7 +3,7 @@ import type { ComponentType, SVGProps } from "react";
 
 // Source unique de vérité pour la nav — consommée par Sidebar (rendu), Topbar (titre/sous-titre)
 // et router.tsx (génération des routes). Remplace la nav immobilière figée de
-// nimbalodge-app/src/components/layout/Sidebar.jsx par les 14 modules cibles (brief §43).
+// docs/legacy/nimbalodge-app/src/components/layout/Sidebar.jsx par les 14 modules cibles (brief §43).
 
 export interface NavItem {
   to: string;

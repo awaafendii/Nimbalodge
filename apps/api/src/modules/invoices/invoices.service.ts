@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { Prisma } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateInvoiceDto } from "./dto/create-invoice.dto";
 import { computeInvoiceTotals, toInvoiceResponse } from "./dto/invoice-response.dto";
@@ -42,7 +43,7 @@ export class InvoicesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const invoice = await this.findFullOrThrow(id);
-    this.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
     return toInvoiceResponse(invoice);
   }
 
@@ -95,7 +96,7 @@ export class InvoicesService {
 
   async update(id: string, dto: UpdateInvoiceDto, requester: AuthenticatedUser) {
     const invoice = await this.findFullOrThrow(id);
-    this.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
     if (invoice.status !== "DRAFT") {
       throw new BadRequestException("Seule une facture en brouillon peut être modifiée");
     }
@@ -143,7 +144,7 @@ export class InvoicesService {
   // collision détectée par @@unique([hotelId, invoiceNumber]), échoue proprement.
   async issue(id: string, requester: AuthenticatedUser) {
     const invoice = await this.findFullOrThrow(id);
-    this.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
     if (invoice.status !== "DRAFT") {
       throw new BadRequestException("Seule une facture en brouillon peut être émise");
     }
@@ -171,7 +172,7 @@ export class InvoicesService {
 
   async cancel(id: string, requester: AuthenticatedUser) {
     const invoice = await this.findFullOrThrow(id);
-    this.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
     if (invoice.status === "CANCELLED") {
       throw new BadRequestException("Cette facture est déjà annulée");
     }
@@ -216,15 +217,6 @@ export class InvoicesService {
       throw new NotFoundException("Facture introuvable");
     }
     return invoice;
-  }
-
-  assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 
   private async validateReferences(

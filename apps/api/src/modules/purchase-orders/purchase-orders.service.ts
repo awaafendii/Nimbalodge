@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { toPurchaseOrderResponse } from "./dto/purchase-order-response.dto";
@@ -31,7 +32,7 @@ export class PurchaseOrdersService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const purchaseOrder = await this.findFullOrThrow(id);
-    this.assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
+    assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
     return toPurchaseOrderResponse(purchaseOrder);
   }
 
@@ -76,7 +77,7 @@ export class PurchaseOrdersService {
 
   async update(id: string, dto: UpdatePurchaseOrderDto, requester: AuthenticatedUser) {
     const purchaseOrder = await this.findFullOrThrow(id);
-    this.assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
+    assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
     if (purchaseOrder.status !== "DRAFT") {
       throw new BadRequestException("Seule une commande en brouillon peut être modifiée");
     }
@@ -115,7 +116,7 @@ export class PurchaseOrdersService {
   // numéro) — même principe qu'Invoice.invoiceNumber assigné à issue() (Phase 6).
   async send(id: string, requester: AuthenticatedUser) {
     const purchaseOrder = await this.findFullOrThrow(id);
-    this.assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
+    assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
     if (purchaseOrder.status !== "DRAFT") {
       throw new BadRequestException("Seule une commande en brouillon peut être envoyée");
     }
@@ -145,7 +146,7 @@ export class PurchaseOrdersService {
   // paiements existent, Phase 6) — une commande partiellement/totalement reçue ne s'annule pas.
   async cancel(id: string, requester: AuthenticatedUser) {
     const purchaseOrder = await this.findFullOrThrow(id);
-    this.assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
+    assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
     if (purchaseOrder.status === "CANCELLED") {
       throw new BadRequestException("Cette commande est déjà annulée");
     }
@@ -204,14 +205,6 @@ export class PurchaseOrdersService {
     return purchaseOrder;
   }
 
-  assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
-  }
 
   private async validateReferences(hotelId: string, dto: PurchaseOrderFields): Promise<void> {
     if (dto.supplierId) {

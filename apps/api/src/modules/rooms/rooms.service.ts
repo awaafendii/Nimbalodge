@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import type { ReservationStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { RoomAvailabilityQueryDto } from "./dto/room-availability-query.dto";
@@ -27,7 +28,7 @@ export class RoomsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const room = await this.findWithHotelOrThrow(id);
-    this.assertInScope(room.hotel.organizationId, room.hotelId, requester);
+    assertInScope(room.hotel.organizationId, room.hotelId, requester);
     return toRoomResponse(room);
   }
 
@@ -127,7 +128,7 @@ export class RoomsService {
 
   async update(id: string, dto: UpdateRoomDto, requester: AuthenticatedUser) {
     const room = await this.findWithHotelOrThrow(id);
-    this.assertInScope(room.hotel.organizationId, room.hotelId, requester);
+    assertInScope(room.hotel.organizationId, room.hotelId, requester);
 
     if (dto.roomTypeId) {
       const roomType = await this.prisma.roomType.findUnique({ where: { id: dto.roomTypeId } });
@@ -155,14 +156,5 @@ export class RoomsService {
       throw new NotFoundException("Chambre introuvable");
     }
     return room;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

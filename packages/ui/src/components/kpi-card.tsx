@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { cn } from "../lib/utils.js";
 
-// Port de nimbalodge-app/src/components/ui/Kpi.jsx (+ .kpi* dans components.css) vers Tailwind.
+// Port de docs/legacy/nimbalodge-app/src/components/ui/Kpi.jsx (+ .kpi* dans components.css) vers Tailwind.
 // Pas d'équivalent shadcn — composé à la main sur les tokens de marque.
 
 const ICON_TONE = {

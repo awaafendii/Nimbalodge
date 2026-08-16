@@ -1,6 +1,7 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateHotelDto } from "./dto/create-hotel.dto";
 import { toHotelResponse } from "./dto/hotel-response.dto";
@@ -29,7 +30,7 @@ export class HotelsService {
     if (!hotel) {
       throw new NotFoundException("Hôtel introuvable");
     }
-    this.assertInScope(hotel.organizationId, hotel.id, requester);
+    assertInScope(hotel.organizationId, hotel.id, requester);
     return toHotelResponse(hotel);
   }
 
@@ -63,7 +64,7 @@ export class HotelsService {
     if (!hotel) {
       throw new NotFoundException("Hôtel introuvable");
     }
-    this.assertInScope(hotel.organizationId, hotel.id, requester);
+    assertInScope(hotel.organizationId, hotel.id, requester);
 
     if (dto.slug && dto.slug !== hotel.slug) {
       const existing = await this.prisma.hotel.findUnique({
@@ -76,14 +77,5 @@ export class HotelsService {
 
     const updated = await this.prisma.hotel.update({ where: { id }, data: dto });
     return toHotelResponse(updated);
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

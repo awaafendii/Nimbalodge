@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { toActivityResponse } from "./dto/activity-response.dto";
 import { CreateActivityDto } from "./dto/create-activity.dto";
@@ -22,7 +23,7 @@ export class ActivitiesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const activity = await this.findWithDepartmentOrThrow(id);
-    this.assertInScope(activity.department.hotel.organizationId, activity.department.hotelId, requester);
+    assertInScope(activity.department.hotel.organizationId, activity.department.hotelId, requester);
     return toActivityResponse(activity);
   }
 
@@ -34,7 +35,7 @@ export class ActivitiesService {
     if (!department) {
       throw new BadRequestException("Département invalide");
     }
-    this.assertInScope(department.hotel.organizationId, department.hotelId, requester);
+    assertInScope(department.hotel.organizationId, department.hotelId, requester);
 
     const existing = await this.prisma.departmentActivity.findUnique({
       where: { departmentId_name: { departmentId: dto.departmentId, name: dto.name } },
@@ -51,7 +52,7 @@ export class ActivitiesService {
 
   async update(id: string, dto: UpdateActivityDto, requester: AuthenticatedUser) {
     const activity = await this.findWithDepartmentOrThrow(id);
-    this.assertInScope(activity.department.hotel.organizationId, activity.department.hotelId, requester);
+    assertInScope(activity.department.hotel.organizationId, activity.department.hotelId, requester);
 
     if (dto.name && dto.name !== activity.name) {
       const existing = await this.prisma.departmentActivity.findUnique({
@@ -75,14 +76,5 @@ export class ActivitiesService {
       throw new NotFoundException("Activité introuvable");
     }
     return activity;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

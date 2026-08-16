@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
 import { InvoicesService } from "./invoices.service";
@@ -14,7 +15,7 @@ export class CreditNotesService {
 
   async list(invoiceId: string, requester: AuthenticatedUser) {
     const invoice = await this.invoicesService.findFullOrThrow(invoiceId);
-    this.invoicesService.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
     return this.prisma.creditNote.findMany({ where: { invoiceId }, orderBy: { date: "asc" } });
   }
 
@@ -22,7 +23,7 @@ export class CreditNotesService {
   // rendu) ; sinon l'avoir réduit seulement le solde dû sur papier.
   async create(invoiceId: string, dto: CreateCreditNoteDto, requester: AuthenticatedUser) {
     const invoice = await this.invoicesService.findFullOrThrow(invoiceId);
-    this.invoicesService.assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
+    assertInScope(invoice.hotel.organizationId, invoice.hotelId, requester);
 
     if (invoice.status === "DRAFT" || invoice.status === "CANCELLED") {
       throw new BadRequestException("Un avoir ne peut être émis que sur une facture émise");

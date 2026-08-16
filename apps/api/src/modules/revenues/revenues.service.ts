@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateRevenueDto } from "./dto/create-revenue.dto";
 import { toRevenueResponse } from "./dto/revenue-response.dto";
@@ -21,7 +22,7 @@ export class RevenuesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const revenue = await this.findWithHotelOrThrow(id);
-    this.assertInScope(revenue.hotel.organizationId, revenue.hotelId, requester);
+    assertInScope(revenue.hotel.organizationId, revenue.hotelId, requester);
     return toRevenueResponse(revenue);
   }
 
@@ -148,14 +149,5 @@ export class RevenuesService {
       throw new NotFoundException("Recette introuvable");
     }
     return revenue;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { Expense, ExpenseStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { toExpenseResponse } from "./dto/expense-response.dto";
@@ -26,7 +27,7 @@ export class ExpensesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const expense = await this.findWithHotelOrThrow(id);
-    this.assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
+    assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
     return toExpenseResponse(expense);
   }
 
@@ -72,7 +73,7 @@ export class ExpensesService {
 
   async update(id: string, dto: UpdateExpenseDto, requester: AuthenticatedUser) {
     const expense = await this.findWithHotelOrThrow(id);
-    this.assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
+    assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
     if (expense.status !== "DRAFT") {
       throw new BadRequestException("Seule une dépense en brouillon peut être modifiée");
     }
@@ -183,7 +184,7 @@ export class ExpensesService {
     action: string
   ): Promise<Expense> {
     const expense = await this.findWithHotelOrThrow(id);
-    this.assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
+    assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
     if (expense.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${expense.status} (attendu : ${expectedStatus})`
@@ -255,14 +256,5 @@ export class ExpensesService {
       throw new NotFoundException("Dépense introuvable");
     }
     return expense;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateFinancialCategoryDto } from "./dto/create-financial-category.dto";
 import { toFinancialCategoryResponse } from "./dto/financial-category-response.dto";
@@ -22,7 +23,7 @@ export class FinancialCategoriesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const category = await this.findWithHotelOrThrow(id);
-    this.assertInScope(category.hotel.organizationId, category.hotelId, requester);
+    assertInScope(category.hotel.organizationId, category.hotelId, requester);
     return toFinancialCategoryResponse(category);
   }
 
@@ -55,7 +56,7 @@ export class FinancialCategoriesService {
 
   async update(id: string, dto: UpdateFinancialCategoryDto, requester: AuthenticatedUser) {
     const category = await this.findWithHotelOrThrow(id);
-    this.assertInScope(category.hotel.organizationId, category.hotelId, requester);
+    assertInScope(category.hotel.organizationId, category.hotelId, requester);
 
     if (dto.name && dto.name !== category.name) {
       const existing = await this.prisma.financialCategory.findUnique({
@@ -76,14 +77,5 @@ export class FinancialCategoriesService {
       throw new NotFoundException("Catégorie introuvable");
     }
     return category;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

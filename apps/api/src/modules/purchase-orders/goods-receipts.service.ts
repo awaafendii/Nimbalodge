@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateGoodsReceiptDto } from "./dto/create-goods-receipt.dto";
 import { toGoodsReceiptResponse } from "./dto/goods-receipt-response.dto";
@@ -16,7 +17,7 @@ export class GoodsReceiptsService {
 
   async list(purchaseOrderId: string, requester: AuthenticatedUser) {
     const purchaseOrder = await this.purchaseOrdersService.findFullOrThrow(purchaseOrderId);
-    this.purchaseOrdersService.assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
+    assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
     const goodsReceipts = await this.prisma.goodsReceipt.findMany({
       where: { purchaseOrderId },
       include: { lines: true },
@@ -30,7 +31,7 @@ export class GoodsReceiptsService {
   // commandée — contrôle d'inventaire réel, pas de sur-réception silencieuse.
   async create(purchaseOrderId: string, dto: CreateGoodsReceiptDto, requester: AuthenticatedUser) {
     const purchaseOrder = await this.purchaseOrdersService.findFullOrThrow(purchaseOrderId);
-    this.purchaseOrdersService.assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
+    assertInScope(purchaseOrder.hotel.organizationId, purchaseOrder.hotelId, requester);
 
     if (purchaseOrder.status !== "SENT" && purchaseOrder.status !== "PARTIALLY_RECEIVED") {
       throw new BadRequestException("La commande doit être envoyée et non totalement reçue pour recevoir une réception");

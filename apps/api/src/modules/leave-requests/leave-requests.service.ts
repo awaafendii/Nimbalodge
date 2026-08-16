@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { LeaveRequest, LeaveStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateLeaveRequestDto } from "./dto/create-leave-request.dto";
 import { toLeaveRequestResponse } from "./dto/leave-request-response.dto";
@@ -24,7 +25,7 @@ export class LeaveRequestsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const leaveRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
+    assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
     return toLeaveRequestResponse(leaveRequest);
   }
 
@@ -69,7 +70,7 @@ export class LeaveRequestsService {
 
   async update(id: string, dto: UpdateLeaveRequestDto, requester: AuthenticatedUser) {
     const leaveRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
+    assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
     if (leaveRequest.status !== "PENDING") {
       throw new BadRequestException("Seule une demande en attente peut être modifiée");
     }
@@ -133,7 +134,7 @@ export class LeaveRequestsService {
     action: string
   ): Promise<LeaveRequest> {
     const leaveRequest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
+    assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
     if (leaveRequest.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${leaveRequest.status} (attendu : ${expectedStatus})`
@@ -148,14 +149,5 @@ export class LeaveRequestsService {
       throw new NotFoundException("Demande de congé introuvable");
     }
     return leaveRequest;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

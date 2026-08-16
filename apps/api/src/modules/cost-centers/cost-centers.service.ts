@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { toCostCenterResponse } from "./dto/cost-center-response.dto";
 import { CreateCostCenterDto } from "./dto/create-cost-center.dto";
@@ -22,7 +23,7 @@ export class CostCentersService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const costCenter = await this.findWithHotelOrThrow(id);
-    this.assertInScope(costCenter.hotel.organizationId, costCenter.hotelId, requester);
+    assertInScope(costCenter.hotel.organizationId, costCenter.hotelId, requester);
     return toCostCenterResponse(costCenter);
   }
 
@@ -65,7 +66,7 @@ export class CostCentersService {
 
   async update(id: string, dto: UpdateCostCenterDto, requester: AuthenticatedUser) {
     const costCenter = await this.findWithHotelOrThrow(id);
-    this.assertInScope(costCenter.hotel.organizationId, costCenter.hotelId, requester);
+    assertInScope(costCenter.hotel.organizationId, costCenter.hotelId, requester);
 
     if (dto.departmentId) {
       await this.assertDepartmentInHotel(dto.departmentId, costCenter.hotelId);
@@ -95,15 +96,6 @@ export class CostCentersService {
     const department = await this.prisma.department.findUnique({ where: { id: departmentId } });
     if (!department || department.hotelId !== hotelId) {
       throw new BadRequestException("Le département doit appartenir au même hôtel");
-    }
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
     }
   }
 }

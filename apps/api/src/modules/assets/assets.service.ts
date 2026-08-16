@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
 import { toAssetResponse } from "./dto/asset-response.dto";
@@ -24,7 +25,7 @@ export class AssetsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const asset = await this.findWithHotelOrThrow(id);
-    this.assertInScope(asset.hotel.organizationId, asset.hotelId, requester);
+    assertInScope(asset.hotel.organizationId, asset.hotelId, requester);
     return toAssetResponse(asset);
   }
 
@@ -60,7 +61,7 @@ export class AssetsService {
 
   async update(id: string, dto: UpdateAssetDto, requester: AuthenticatedUser) {
     const asset = await this.findWithHotelOrThrow(id);
-    this.assertInScope(asset.hotel.organizationId, asset.hotelId, requester);
+    assertInScope(asset.hotel.organizationId, asset.hotelId, requester);
 
     await this.validateReferences(asset.hotelId, dto);
 
@@ -89,14 +90,5 @@ export class AssetsService {
       throw new NotFoundException("Actif introuvable");
     }
     return asset;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

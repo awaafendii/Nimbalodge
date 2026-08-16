@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { MaintenanceIntervention, MaintenanceInterventionStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateMaintenanceInterventionDto } from "./dto/create-maintenance-intervention.dto";
 import { ListMaintenanceInterventionsQueryDto } from "./dto/list-maintenance-interventions-query.dto";
@@ -30,7 +31,7 @@ export class MaintenanceInterventionsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const intervention = await this.findWithHotelOrThrow(id);
-    this.assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
+    assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
     return toMaintenanceInterventionResponse(intervention);
   }
 
@@ -68,7 +69,7 @@ export class MaintenanceInterventionsService {
 
   async update(id: string, dto: UpdateMaintenanceInterventionDto, requester: AuthenticatedUser) {
     const intervention = await this.findWithHotelOrThrow(id);
-    this.assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
+    assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
     if (intervention.status !== "SCHEDULED") {
       throw new BadRequestException("Seule une intervention planifiée peut être modifiée");
     }
@@ -112,7 +113,7 @@ export class MaintenanceInterventionsService {
   // annulables, COMPLETED ne l'est plus — même principe que Reservation.cancel() (Phase 7).
   async cancel(id: string, requester: AuthenticatedUser) {
     const intervention = await this.findWithHotelOrThrow(id);
-    this.assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
+    assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
     if (intervention.status !== "SCHEDULED" && intervention.status !== "IN_PROGRESS") {
       throw new BadRequestException(
         `Impossible d'annuler une intervention au statut ${intervention.status}`
@@ -132,7 +133,7 @@ export class MaintenanceInterventionsService {
     action: string
   ): Promise<MaintenanceIntervention> {
     const intervention = await this.findWithHotelOrThrow(id);
-    this.assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
+    assertInScope(intervention.hotel.organizationId, intervention.hotelId, requester);
     if (intervention.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${intervention.status} (attendu : ${expectedStatus})`
@@ -176,14 +177,5 @@ export class MaintenanceInterventionsService {
       throw new NotFoundException("Intervention introuvable");
     }
     return intervention;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

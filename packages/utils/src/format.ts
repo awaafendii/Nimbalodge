@@ -1,4 +1,4 @@
-// Port TypeScript de nimbalodge-app/src/utils/format.js — copie parallèle, pas un import partagé.
+// Port TypeScript de docs/legacy/nimbalodge-app/src/utils/format.js — copie parallèle, pas un import partagé.
 // Le prototype legacy garde son propre format.js indépendant.
 
 export const FX = 9300; // 1 USD = 9300 GNF

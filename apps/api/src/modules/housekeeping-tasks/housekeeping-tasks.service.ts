@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { HousekeepingTask } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateHousekeepingTaskDto } from "./dto/create-housekeeping-task.dto";
 import { toHousekeepingTaskResponse } from "./dto/housekeeping-task-response.dto";
@@ -22,7 +23,7 @@ export class HousekeepingTasksService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const task = await this.findWithHotelOrThrow(id);
-    this.assertInScope(task.hotel.organizationId, task.hotelId, requester);
+    assertInScope(task.hotel.organizationId, task.hotelId, requester);
     return toHousekeepingTaskResponse(task);
   }
 
@@ -114,7 +115,7 @@ export class HousekeepingTasksService {
     action: string
   ): Promise<HousekeepingTask> {
     const task = await this.findWithHotelOrThrow(id);
-    this.assertInScope(task.hotel.organizationId, task.hotelId, requester);
+    assertInScope(task.hotel.organizationId, task.hotelId, requester);
     if (task.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${task.status} (attendu : ${expectedStatus})`
@@ -129,14 +130,5 @@ export class HousekeepingTasksService {
       throw new NotFoundException("Tâche de ménage introuvable");
     }
     return task;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

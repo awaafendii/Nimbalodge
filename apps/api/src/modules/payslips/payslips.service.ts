@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreatePayslipDto } from "./dto/create-payslip.dto";
 import { MarkPaidPayslipDto } from "./dto/mark-paid-payslip.dto";
@@ -23,7 +24,7 @@ export class PayslipsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
-    this.assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
     return toPayslipResponse(payslip);
   }
 
@@ -82,7 +83,7 @@ export class PayslipsService {
 
   async update(id: string, dto: UpdatePayslipDto, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
-    this.assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
     if (payslip.status !== "DRAFT") {
       throw new BadRequestException("Seul un bulletin en brouillon peut être modifié");
     }
@@ -93,7 +94,7 @@ export class PayslipsService {
 
   async finalize(id: string, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
-    this.assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
     if (payslip.status !== "DRAFT") {
       throw new BadRequestException(
         `Impossible d'effectuer "finalize" depuis le statut ${payslip.status} (attendu : DRAFT)`
@@ -108,7 +109,7 @@ export class PayslipsService {
   // correspondante, dans un seul $transaction. "Alimente automatiquement Finance" (§22).
   async markPaid(id: string, dto: MarkPaidPayslipDto, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
-    this.assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
     if (payslip.status !== "FINALIZED") {
       throw new BadRequestException(
         `Impossible d'effectuer "mark-paid" depuis le statut ${payslip.status} (attendu : FINALIZED)`
@@ -233,14 +234,5 @@ export class PayslipsService {
       throw new NotFoundException("Bulletin de paie introuvable");
     }
     return payslip;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

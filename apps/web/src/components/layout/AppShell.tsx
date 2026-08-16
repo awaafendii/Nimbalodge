@@ -6,7 +6,7 @@ import { Topbar } from "./Topbar.js";
 import { OfflineBanner } from "../common/offline-banner.js";
 import { useUIStore } from "../../stores/ui-store.js";
 
-// Port de nimbalodge-app/src/components/layout/AppShell.jsx : sidebar fixe en desktop, off-canvas
+// Port de docs/legacy/nimbalodge-app/src/components/layout/AppShell.jsx : sidebar fixe en desktop, off-canvas
 // (Sheet shadcn) en mobile — remplace le scrim/aside manuel du prototype legacy.
 export function AppShell() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);

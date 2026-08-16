@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateRoomTypeDto } from "./dto/create-room-type.dto";
 import { toRoomTypeResponse } from "./dto/room-type-response.dto";
@@ -22,7 +23,7 @@ export class RoomTypesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const roomType = await this.findWithHotelOrThrow(id);
-    this.assertInScope(roomType.hotel.organizationId, roomType.hotelId, requester);
+    assertInScope(roomType.hotel.organizationId, roomType.hotelId, requester);
     return toRoomTypeResponse(roomType);
   }
 
@@ -63,7 +64,7 @@ export class RoomTypesService {
 
   async update(id: string, dto: UpdateRoomTypeDto, requester: AuthenticatedUser) {
     const roomType = await this.findWithHotelOrThrow(id);
-    this.assertInScope(roomType.hotel.organizationId, roomType.hotelId, requester);
+    assertInScope(roomType.hotel.organizationId, roomType.hotelId, requester);
 
     if (dto.name && dto.name !== roomType.name) {
       const existing = await this.prisma.roomType.findUnique({
@@ -84,14 +85,5 @@ export class RoomTypesService {
       throw new NotFoundException("Type de chambre introuvable");
     }
     return roomType;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

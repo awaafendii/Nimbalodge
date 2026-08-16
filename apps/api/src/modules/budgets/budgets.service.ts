@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { toBudgetLineResponse, toBudgetResponse } from "./dto/budget-response.dto";
@@ -28,7 +29,7 @@ export class BudgetsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(id);
-    this.assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
     const lines = await this.prisma.budgetLine.findMany({ where: { budgetId: id } });
     return { ...toBudgetResponse(budget), lines: lines.map(toBudgetLineResponse) };
   }
@@ -61,7 +62,7 @@ export class BudgetsService {
 
   async update(id: string, dto: UpdateBudgetDto, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(id);
-    this.assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
 
     const updated = await this.prisma.budget.update({
       where: { id },
@@ -77,7 +78,7 @@ export class BudgetsService {
 
   async addLine(budgetId: string, dto: CreateBudgetLineDto, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(budgetId);
-    this.assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
 
     if (dto.departmentId) {
       const department = await this.prisma.department.findUnique({ where: { id: dto.departmentId } });
@@ -129,7 +130,7 @@ export class BudgetsService {
   // selon `line.type`, filtré par les dimensions non-nulles de la ligne + la période du budget.
   async getExecution(budgetId: string, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(budgetId);
-    this.assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
 
     const lines = await this.prisma.budgetLine.findMany({ where: { budgetId } });
 
@@ -186,7 +187,7 @@ export class BudgetsService {
   // créée, même si le dépassement s'aggrave ensuite : limite documentée).
   async checkOverspendAlerts(id: string, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(id);
-    this.assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
 
     const execution = await this.getExecution(id, requester);
     const overspentLines = execution.lines.filter((line) => line.type === "EXPENSE" && line.actual.greaterThan(line.planned));
@@ -215,14 +216,5 @@ export class BudgetsService {
       throw new NotFoundException("Budget introuvable");
     }
     return budget;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

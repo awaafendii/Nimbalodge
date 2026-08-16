@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateGuestDto } from "./dto/create-guest.dto";
 import { toGuestResponse } from "./dto/guest-response.dto";
@@ -22,7 +23,7 @@ export class GuestsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const guest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(guest.hotel.organizationId, guest.hotelId, requester);
+    assertInScope(guest.hotel.organizationId, guest.hotelId, requester);
     return toGuestResponse(guest);
   }
 
@@ -60,7 +61,7 @@ export class GuestsService {
 
   async update(id: string, dto: UpdateGuestDto, requester: AuthenticatedUser) {
     const guest = await this.findWithHotelOrThrow(id);
-    this.assertInScope(guest.hotel.organizationId, guest.hotelId, requester);
+    assertInScope(guest.hotel.organizationId, guest.hotelId, requester);
 
     const updated = await this.prisma.guest.update({ where: { id }, data: dto });
     return toGuestResponse(updated);
@@ -72,14 +73,5 @@ export class GuestsService {
       throw new NotFoundException("Client introuvable");
     }
     return guest;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

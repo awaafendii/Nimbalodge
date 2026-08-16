@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "commonjs",
-  "description": "NimbaLodge ERP — monorepo (apps/web, apps/api, packages/ui, packages/utils). Le prototype legacy nimbalodge-app/ reste hors workspaces.",
+  "description": "NimbaLodge ERP — monorepo (apps/web, apps/api, packages/ui, packages/utils). Le prototype legacy est archivé dans docs/legacy/nimbalodge-app/, hors workspaces.",
   "engines": {
     "node": ">=20"
   },

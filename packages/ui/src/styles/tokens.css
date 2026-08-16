@@ -1,6 +1,6 @@
-/* Port verbatim de nimbalodge-app/src/styles/tokens.css — source de vérité unique de la palette
+/* Port verbatim de docs/legacy/nimbalodge-app/src/styles/tokens.css — source de vérité unique de la palette
    et de la typographie. Ne pas dupliquer/diverger : toute évolution de marque se fait ici, et
-   nimbalodge-app garde sa propre copie indépendante tant qu'il n'est pas rebranché (Phase 4+). */
+   docs/legacy/nimbalodge-app garde sa propre copie indépendante tant qu'il n'est pas rebranché (Phase 4+). */
 
 /* ============================= DESIGN TOKENS ============================= */
 :root {

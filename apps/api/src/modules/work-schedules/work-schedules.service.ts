@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateWorkScheduleDto } from "./dto/create-work-schedule.dto";
 import { toWorkScheduleResponse } from "./dto/work-schedule-response.dto";
@@ -24,7 +25,7 @@ export class WorkSchedulesService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const schedule = await this.findWithHotelOrThrow(id);
-    this.assertInScope(schedule.hotel.organizationId, schedule.hotelId, requester);
+    assertInScope(schedule.hotel.organizationId, schedule.hotelId, requester);
     return toWorkScheduleResponse(schedule);
   }
 
@@ -58,7 +59,7 @@ export class WorkSchedulesService {
 
   async update(id: string, dto: UpdateWorkScheduleDto, requester: AuthenticatedUser) {
     const schedule = await this.findWithHotelOrThrow(id);
-    this.assertInScope(schedule.hotel.organizationId, schedule.hotelId, requester);
+    assertInScope(schedule.hotel.organizationId, schedule.hotelId, requester);
 
     await this.validateReferences(schedule.hotelId, dto);
 
@@ -95,14 +96,5 @@ export class WorkSchedulesService {
       throw new NotFoundException("Planning introuvable");
     }
     return schedule;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

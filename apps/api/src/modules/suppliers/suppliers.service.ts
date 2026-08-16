@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { CreateSupplierDto } from "./dto/create-supplier.dto";
 import { toSupplierResponse } from "./dto/supplier-response.dto";
@@ -22,7 +23,7 @@ export class SuppliersService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const supplier = await this.findWithHotelOrThrow(id);
-    this.assertInScope(supplier.hotel.organizationId, supplier.hotelId, requester);
+    assertInScope(supplier.hotel.organizationId, supplier.hotelId, requester);
     return toSupplierResponse(supplier);
   }
 
@@ -64,7 +65,7 @@ export class SuppliersService {
 
   async update(id: string, dto: UpdateSupplierDto, requester: AuthenticatedUser) {
     const supplier = await this.findWithHotelOrThrow(id);
-    this.assertInScope(supplier.hotel.organizationId, supplier.hotelId, requester);
+    assertInScope(supplier.hotel.organizationId, supplier.hotelId, requester);
 
     if (dto.name && dto.name !== supplier.name) {
       const existing = await this.prisma.supplier.findUnique({
@@ -85,14 +86,5 @@ export class SuppliersService {
       throw new NotFoundException("Fournisseur introuvable");
     }
     return supplier;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

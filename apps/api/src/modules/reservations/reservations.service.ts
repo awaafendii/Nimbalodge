@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import type { Reservation, ReservationStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { RoomsService } from "../rooms/rooms.service";
 import { CancelReservationDto } from "./dto/cancel-reservation.dto";
@@ -30,7 +31,7 @@ export class ReservationsService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const reservation = await this.findWithHotelOrThrow(id);
-    this.assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
+    assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
     return toReservationResponse(reservation);
   }
 
@@ -87,7 +88,7 @@ export class ReservationsService {
 
   async update(id: string, dto: UpdateReservationDto, requester: AuthenticatedUser) {
     const reservation = await this.findWithHotelOrThrow(id);
-    this.assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
+    assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
     if (reservation.status !== "PENDING") {
       throw new BadRequestException("Seule une réservation en attente peut être modifiée");
     }
@@ -161,7 +162,7 @@ export class ReservationsService {
   // existants, voir docs/architecture/phase-6-billing.md).
   async cancel(id: string, dto: CancelReservationDto, requester: AuthenticatedUser) {
     const reservation = await this.findWithHotelOrThrow(id);
-    this.assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
+    assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
     if (reservation.status !== "PENDING" && reservation.status !== "CONFIRMED") {
       throw new BadRequestException(
         `Impossible d'annuler une réservation au statut ${reservation.status} — un séjour en cours ou terminé ne s'annule pas`
@@ -181,7 +182,7 @@ export class ReservationsService {
     action: string
   ): Promise<Reservation> {
     const reservation = await this.findWithHotelOrThrow(id);
-    this.assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
+    assertInScope(reservation.hotel.organizationId, reservation.hotelId, requester);
     if (reservation.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${reservation.status} (attendu : ${expectedStatus})`
@@ -211,14 +212,5 @@ export class ReservationsService {
       throw new NotFoundException("Réservation introuvable");
     }
     return reservation;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }

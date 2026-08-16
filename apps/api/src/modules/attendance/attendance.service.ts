@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
 import { toAttendanceResponse } from "./dto/attendance-response.dto";
 import { CreateAttendanceDto } from "./dto/create-attendance.dto";
@@ -21,7 +22,7 @@ export class AttendanceService {
 
   async findOne(id: string, requester: AuthenticatedUser) {
     const attendance = await this.findWithHotelOrThrow(id);
-    this.assertInScope(attendance.hotel.organizationId, attendance.hotelId, requester);
+    assertInScope(attendance.hotel.organizationId, attendance.hotelId, requester);
     return toAttendanceResponse(attendance);
   }
 
@@ -64,7 +65,7 @@ export class AttendanceService {
 
   async clockOut(id: string, requester: AuthenticatedUser) {
     const attendance = await this.findWithHotelOrThrow(id);
-    this.assertInScope(attendance.hotel.organizationId, attendance.hotelId, requester);
+    assertInScope(attendance.hotel.organizationId, attendance.hotelId, requester);
     if (attendance.clockOut) {
       throw new BadRequestException("Ce pointage est déjà fermé");
     }
@@ -81,14 +82,5 @@ export class AttendanceService {
       throw new NotFoundException("Pointage introuvable");
     }
     return attendance;
-  }
-
-  private assertInScope(organizationId: string, hotelId: string, requester: AuthenticatedUser): void {
-    if (organizationId !== requester.organizationId) {
-      throw new ForbiddenException("Hors périmètre de votre organisation");
-    }
-    if (requester.hotelId && hotelId !== requester.hotelId) {
-      throw new ForbiddenException("Hors périmètre de votre hôtel");
-    }
   }
 }
