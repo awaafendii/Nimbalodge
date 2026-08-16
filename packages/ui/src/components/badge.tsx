@@ -62,6 +62,10 @@ const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Brouillon",
   FINALIZED: "Finalisé",
   PAID: "Payé",
+  // PurchaseOrderStatus (Phase 9) — DRAFT/CANCELLED déjà présents ci-dessus (même sémantique).
+  SENT: "Envoyée",
+  PARTIALLY_RECEIVED: "Partiellement reçue",
+  RECEIVED: "Reçue",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -84,6 +88,9 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   DRAFT: "neutral",
   FINALIZED: "warning",
   PAID: "success",
+  SENT: "default",
+  PARTIALLY_RECEIVED: "warning",
+  RECEIVED: "success",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
