@@ -73,6 +73,10 @@ const STATUS_LABELS: Record<string, string> = {
   TO_CLEAN: "À nettoyer",
   CLEANED: "Nettoyée",
   INSPECTED: "Inspectée",
+  // MaintenanceInterventionStatus (Phase 10) — CANCELLED déjà présent ci-dessus.
+  SCHEDULED: "Planifiée",
+  IN_PROGRESS: "En cours",
+  COMPLETED: "Terminée",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -102,6 +106,9 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   TO_CLEAN: "critical",
   CLEANED: "warning",
   INSPECTED: "success",
+  SCHEDULED: "default",
+  IN_PROGRESS: "warning",
+  COMPLETED: "success",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
