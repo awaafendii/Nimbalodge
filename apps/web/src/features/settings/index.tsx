@@ -6,6 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  DataTable,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -16,9 +17,11 @@ import {
   Input,
   Label,
   Skeleton,
+  type DataTableColumn,
 } from "@nimbalodge/ui";
 
 import { QueryState } from "../../components/common/query-state.js";
+import type { Department } from "../../services/departments.js";
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "../../hooks/use-departments.js";
 import { useCreateHotel, useCurrentHotel, useHotels } from "../../hooks/use-hotels.js";
 import { useAuthStore } from "../../stores/auth-store.js";
@@ -286,10 +289,13 @@ function DepartmentsCard() {
             </Button>
           }
         >
-          {(data) => (
-            <ul className="flex flex-col divide-y divide-border">
-              {data.map((department) => (
-                <li key={department.id} className="flex items-center justify-between gap-4 py-3">
+          {(data) => {
+            const columns: DataTableColumn<Department>[] = [
+              {
+                id: "name",
+                header: "Nom",
+                sortValue: (department) => department.name.toLowerCase(),
+                cell: (department) => (
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-[var(--fw-subtitle-strong)] text-sm">{department.name}</span>
@@ -300,6 +306,13 @@ function DepartmentsCard() {
                       <p className="truncate text-xs text-muted-foreground">{department.description}</p>
                     ) : null}
                   </div>
+                ),
+              },
+              {
+                id: "actions",
+                header: "",
+                align: "right",
+                cell: (department) => (
                   <Button
                     variant="outline"
                     size="sm"
@@ -310,10 +323,20 @@ function DepartmentsCard() {
                   >
                     {department.isActive ? "Désactiver" : "Réactiver"}
                   </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+                ),
+              },
+            ];
+            return (
+              <DataTable
+                columns={columns}
+                data={data}
+                getRowId={(department) => department.id}
+                searchableText={(department) => `${department.name} ${department.code ?? ""}`}
+                searchPlaceholder="Rechercher un département…"
+                emptyMessage="Aucun département ne correspond à cette recherche."
+              />
+            );
+          }}
         </QueryState>
       </CardContent>
     </Card>

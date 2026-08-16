@@ -14,5 +14,11 @@ export * from "./components/skeleton.js";
 export * from "./components/kpi-card.js";
 export * from "./components/input.js";
 export * from "./components/label.js";
+export * from "./components/checkbox.js";
+export * from "./components/select.js";
+export * from "./components/textarea.js";
+export * from "./components/confirm-dialog.js";
+export * from "./components/pagination.js";
+export * from "./components/data-table.js";
 
 export * as Icons from "./icons/index.js";
