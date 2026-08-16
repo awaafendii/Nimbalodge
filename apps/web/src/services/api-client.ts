@@ -117,9 +117,48 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
   return (await response.json()) as T;
 }
 
+// Pour les réponses binaires (export CSV/Excel/PDF, voir ReportsController) — apiFetch() suppose
+// toujours du JSON. Même logique d'auth/refresh que apiFetch, jamais dupliquée ailleurs.
+export async function apiFetchBlob(path: string): Promise<{ blob: Blob; filename: string }> {
+  const doFetch = (): Promise<Response> => {
+    const token = useAuthStore.getState().accessToken;
+    return fetch(`${API_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  };
+
+  let response: Response;
+  try {
+    response = await doFetch();
+  } catch {
+    throw new ApiError(0, "Impossible de joindre le serveur — vérifiez votre connexion.");
+  }
+
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      try {
+        response = await doFetch();
+      } catch {
+        throw new ApiError(0, "Impossible de joindre le serveur — vérifiez votre connexion.");
+      }
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename="?([^"]+)"?/.exec(disposition);
+  return { blob, filename: match?.[1] ?? "export" };
+}
+
 export const apiClient = {
   get: <T>(path: string) => apiFetch<T>(path, { method: "GET" }),
   post: <T>(path: string, body?: unknown) => apiFetch<T>(path, { method: "POST", body }),
   patch: <T>(path: string, body?: unknown) => apiFetch<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
+  getBlob: (path: string) => apiFetchBlob(path),
 };
