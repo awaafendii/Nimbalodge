@@ -7,5 +7,5 @@
     "declaration": false,
     "declarationMap": false
   },
-  "include": ["seed.ts"]
+  "include": ["seed.ts", "bootstrap-production.ts", "permissions-catalog.ts"]
 }

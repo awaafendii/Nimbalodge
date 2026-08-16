@@ -1,0 +1,70 @@
+# Blueprint Render — voir docs/deployment/render.md pour la marche à suivre complète (étapes
+# manuelles dans le dashboard Render, impossibles à automatiser sans les identifiants du compte).
+#
+# Plan "free" partout par défaut — délibéré : un plan payant est une décision financière qui
+# revient à l'utilisateur, pas à moi. À changer dans le dashboard Render si besoin de fiabilité
+# "toujours actif" (le plan free suspend le service après inactivité, la base free expire au bout
+# de 90 jours).
+databases:
+  - name: nimbalodge-db
+    databaseName: nimbalodge
+    user: nimbalodge
+    plan: free
+
+services:
+  - type: web
+    name: nimbalodge-api
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: npm install && npm run db:generate && npm run build:api
+    # Migration + bootstrap avant chaque démarrage — les deux sont idempotents (migrate deploy
+    # n'applique que les migrations en attente, bootstrap-production ignore silencieusement si le
+    # compte admin existe déjà), donc sans danger à répéter à chaque redémarrage/scale.
+    startCommand: npm run db:migrate:deploy && npm run bootstrap:production && npm run start:api
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nimbalodge-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        value: https://nimbalodge-web.onrender.com
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # Non synchronisés (sync: false) — à saisir manuellement dans le dashboard Render après le
+      # premier déploiement, jamais commités. Voir docs/deployment/render.md.
+      - key: BOOTSTRAP_ORG_NAME
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_ADMIN_FIRST_NAME
+        sync: false
+      - key: BOOTSTRAP_ADMIN_LAST_NAME
+        sync: false
+
+  - type: web
+    name: nimbalodge-web
+    runtime: static
+    rootDir: .
+    buildCommand: npm install && npm run build:web
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://nimbalodge-api.onrender.com/api/v1
+    routes:
+      # SPA — React Router gère le routage côté client, toute route inconnue doit retomber sur
+      # index.html (sinon un rechargement sur /finance par ex. renvoie un 404 Render).
+      - type: rewrite
+        source: /*
+        destination: /index.html

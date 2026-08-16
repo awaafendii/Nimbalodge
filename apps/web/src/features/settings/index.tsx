@@ -20,7 +20,7 @@ import {
 
 import { QueryState } from "../../components/common/query-state.js";
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "../../hooks/use-departments.js";
-import { useCurrentHotel, useHotels } from "../../hooks/use-hotels.js";
+import { useCreateHotel, useCurrentHotel, useHotels } from "../../hooks/use-hotels.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
 // Référence de branchement complet (Phase 14) : aucun département n'est imposé à la création d'un
@@ -41,17 +41,7 @@ function HotelInfoCard() {
   const hotel = useCurrentHotel();
 
   if (!user?.hotel) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Organisation</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Vue organisation ({user?.organization.name ?? "…"}) — aucun hôtel unique sélectionné.
-          Le sélecteur multi-hôtel n'est pas encore construit.
-        </CardContent>
-      </Card>
-    );
+    return <OrganizationHotelsCard />;
   }
 
   return (
@@ -90,6 +80,167 @@ function HotelInfoCard() {
         </QueryState>
       </CardContent>
     </Card>
+  );
+}
+
+// Vue org-wide (SUPER_ADMIN sans hôtel unique, ex. juste après le bootstrap de production) — liste
+// les hôtels réels de l'organisation et permet d'en créer un premier. Aucun sélecteur multi-hôtel
+// pour basculer le contexte de travail (pas encore construit) : un SUPER_ADMIN agit déjà à travers
+// tous les hôtels de son organisation, un hôtel précis se choisit au cas par cas (ex. le sélecteur
+// d'hôtel du formulaire "Ajouter un département" ci-dessous).
+function OrganizationHotelsCard() {
+  const user = useAuthStore((s) => s.user);
+  const hotels = useHotels();
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>{user?.organization.name ?? "Organisation"}</CardTitle>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Icons.IconPlus />
+              Créer un hôtel
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <CreateHotelForm onDone={() => setDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        <QueryState
+          isLoading={hotels.isLoading}
+          error={hotels.error}
+          data={hotels.data}
+          onRetry={() => hotels.refetch()}
+          isEmpty={(data) => data.length === 0}
+          emptyTitle="Aucun hôtel configuré"
+          emptyDescription="Créez votre premier hôtel pour commencer à utiliser NimbaLodge."
+          emptyAction={
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <Icons.IconPlus />
+              Créer un hôtel
+            </Button>
+          }
+        >
+          {(data) => (
+            <ul className="flex flex-col divide-y divide-border">
+              {data.map((h) => (
+                <li key={h.id} className="flex items-center justify-between gap-4 py-3 text-sm">
+                  <span className="font-[var(--fw-subtitle-strong)]">{h.name}</span>
+                  {!h.isActive ? <Badge variant="outline">Désactivé</Badge> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </QueryState>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreateHotelForm({ onDone }: { onDone: () => void }) {
+  const createHotel = useCreateHotel();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [createDefaultDepartment, setCreateDefaultDepartment] = useState(false);
+
+  function handleNameChange(value: string) {
+    setName(value);
+    if (!slugTouched) {
+      setSlug(
+        value
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "")
+      );
+    }
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!name || !slug) return;
+    createHotel.mutate(
+      {
+        name,
+        slug,
+        address: address || undefined,
+        phone: phone || undefined,
+        email: email || undefined,
+        createDefaultDepartment,
+      },
+      { onSuccess: onDone }
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Créer un hôtel</DialogTitle>
+      </DialogHeader>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="hotel-name">Nom</Label>
+        <Input id="hotel-name" required value={name} onChange={(event) => handleNameChange(event.target.value)} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="hotel-slug">Identifiant (slug, unique dans l'organisation)</Label>
+        <Input
+          id="hotel-slug"
+          required
+          value={slug}
+          onChange={(event) => {
+            setSlugTouched(true);
+            setSlug(event.target.value);
+          }}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="hotel-address">Adresse (optionnel)</Label>
+        <Input id="hotel-address" value={address} onChange={(event) => setAddress(event.target.value)} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="hotel-phone">Téléphone (optionnel)</Label>
+        <Input id="hotel-phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="hotel-email">Email (optionnel)</Label>
+        <Input id="hotel-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+      </div>
+
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={createDefaultDepartment}
+          onChange={(event) => setCreateDefaultDepartment(event.target.checked)}
+        />
+        Créer aussi un département "Administration générale"
+      </label>
+
+      {createHotel.isError ? (
+        <p className="text-sm text-destructive">
+          {createHotel.error instanceof Error ? createHotel.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <DialogFooter>
+        <Button type="submit" disabled={createHotel.isPending}>
+          {createHotel.isPending ? "Création…" : "Créer"}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 
