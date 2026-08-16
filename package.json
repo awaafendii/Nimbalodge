@@ -32,13 +32,15 @@
   "prisma": {
     "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"
   },
-  "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^22.5.4",
+  "dependencies": {
     "bcryptjs": "^2.4.3",
-    "dotenv-cli": "^7.4.2",
     "prisma": "^5.19.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.5.4",
+    "dotenv-cli": "^7.4.2"
   }
 }
