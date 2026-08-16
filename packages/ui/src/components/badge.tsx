@@ -58,6 +58,10 @@ const STATUS_LABELS: Record<string, string> = {
   // LeaveStatus (Phase 8) — PENDING/CANCELLED réutilisent les clés ci-dessus (même sémantique).
   APPROVED: "Approuvée",
   REJECTED: "Rejetée",
+  // PayslipStatus (Phase 8)
+  DRAFT: "Brouillon",
+  FINALIZED: "Finalisé",
+  PAID: "Payé",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -77,6 +81,9 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   NO_SHOW: "critical",
   APPROVED: "success",
   REJECTED: "critical",
+  DRAFT: "neutral",
+  FINALIZED: "warning",
+  PAID: "success",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
