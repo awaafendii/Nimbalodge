@@ -77,6 +77,9 @@ const STATUS_LABELS: Record<string, string> = {
   SCHEDULED: "Planifiée",
   IN_PROGRESS: "En cours",
   COMPLETED: "Terminée",
+  // AuditOutcome (Phase 12)
+  SUCCESS: "Succès",
+  FAILURE: "Échec",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -109,6 +112,8 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   SCHEDULED: "default",
   IN_PROGRESS: "warning",
   COMPLETED: "success",
+  SUCCESS: "success",
+  FAILURE: "critical",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
