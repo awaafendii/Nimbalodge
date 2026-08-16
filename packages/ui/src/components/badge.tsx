@@ -66,6 +66,13 @@ const STATUS_LABELS: Record<string, string> = {
   SENT: "Envoyée",
   PARTIALLY_RECEIVED: "Partiellement reçue",
   RECEIVED: "Reçue",
+  // Statut chambre calculé (Phase 10, HousekeepingTasksService.dashboard()) — pas l'enum Prisma
+  // brut (HousekeepingStatus n'a pas AVAILABLE, dérivé côté service quand INSPECTED ou aucune
+  // tâche active).
+  AVAILABLE: "Disponible",
+  TO_CLEAN: "À nettoyer",
+  CLEANED: "Nettoyée",
+  INSPECTED: "Inspectée",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -91,6 +98,10 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   SENT: "default",
   PARTIALLY_RECEIVED: "warning",
   RECEIVED: "success",
+  AVAILABLE: "success",
+  TO_CLEAN: "critical",
+  CLEANED: "warning",
+  INSPECTED: "success",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
