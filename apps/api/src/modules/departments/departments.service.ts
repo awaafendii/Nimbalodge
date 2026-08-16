@@ -112,6 +112,14 @@ export class DepartmentsService {
     return { success: true };
   }
 
+  // Consommé par assertInDepartmentScope() (Étape 5) dans les services dont la ressource porte un
+  // departmentId — liste vide = demandeur non affecté à un département = pas de restriction
+  // (voir le commentaire d'assertInDepartmentScope pour la sémantique opt-in).
+  async getDepartmentIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.userDepartment.findMany({ where: { userId }, select: { departmentId: true } });
+    return rows.map((row) => row.departmentId);
+  }
+
   private async findWithHotelOrThrow(id: string) {
     const department = await this.prisma.department.findUnique({ where: { id }, include: { hotel: true } });
     if (!department) {

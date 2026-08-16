@@ -2,8 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { Expense, ExpenseStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { toExpenseResponse } from "./dto/expense-response.dto";
 import { RejectExpenseDto } from "./dto/reject-expense.dto";
@@ -13,13 +14,20 @@ type ExpenseFields = CreateExpenseDto | UpdateExpenseDto;
 
 @Injectable()
 export class ExpensesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService
+  ) {}
 
   async list(requester: AuthenticatedUser) {
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const expenses = await this.prisma.expense.findMany({
-      where: requester.hotelId
-        ? { hotelId: requester.hotelId }
-        : { hotel: { organizationId: requester.organizationId } },
+      where: {
+        ...(requester.hotelId
+          ? { hotelId: requester.hotelId }
+          : { hotel: { organizationId: requester.organizationId } }),
+        ...(departmentIds.length > 0 ? { departmentId: { in: departmentIds } } : {}),
+      },
       orderBy: { date: "desc" },
     });
     return expenses.map(toExpenseResponse);
@@ -28,6 +36,8 @@ export class ExpensesService {
   async findOne(id: string, requester: AuthenticatedUser) {
     const expense = await this.findWithHotelOrThrow(id);
     assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(expense.departmentId, departmentIds);
     return toExpenseResponse(expense);
   }
 
@@ -44,6 +54,9 @@ export class ExpensesService {
     if (!hotel || hotel.organizationId !== requester.organizationId) {
       throw new BadRequestException("Hôtel invalide");
     }
+
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(dto.departmentId ?? null, departmentIds);
 
     await this.validateReferences(hotelId, dto);
 
@@ -74,6 +87,11 @@ export class ExpensesService {
   async update(id: string, dto: UpdateExpenseDto, requester: AuthenticatedUser) {
     const expense = await this.findWithHotelOrThrow(id);
     assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(expense.departmentId, departmentIds);
+    if (dto.departmentId !== undefined) {
+      assertInDepartmentScope(dto.departmentId, departmentIds);
+    }
     if (expense.status !== "DRAFT") {
       throw new BadRequestException("Seule une dépense en brouillon peut être modifiée");
     }
@@ -185,6 +203,8 @@ export class ExpensesService {
   ): Promise<Expense> {
     const expense = await this.findWithHotelOrThrow(id);
     assertInScope(expense.hotel.organizationId, expense.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(expense.departmentId, departmentIds);
     if (expense.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${expense.status} (attendu : ${expectedStatus})`

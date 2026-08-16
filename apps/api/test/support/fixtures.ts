@@ -81,6 +81,26 @@ export async function createHotelUser(
   return { hotelId: hotel.id, email, password: TEST_PASSWORD };
 }
 
+// Comme createHotelUser, mais rattache le nouvel utilisateur à un hôtel EXISTANT plutôt que d'en
+// créer un — nécessaire pour tester le scope départemental (deux utilisateurs du même hôtel,
+// affectés à des départements différents), un cas que createHotelUser ne permet pas (il crée
+// toujours son propre hôtel).
+export async function createUserInHotel(
+  prisma: PrismaService,
+  organizationId: string,
+  roleId: string,
+  hotelId: string,
+  emailSlug: string
+): Promise<HotelUserFixture> {
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
+  const email = `admin@${emailSlug}.test`;
+  const user = await prisma.user.create({
+    data: { email, passwordHash, firstName: "Test", lastName: "Admin", organizationId, hotelId },
+  });
+  await prisma.userRole.create({ data: { userId: user.id, roleId } });
+  return { hotelId, email, password: TEST_PASSWORD };
+}
+
 export interface TenantFixture extends OrganizationFixture, HotelUserFixture {}
 
 // Cas le plus courant : une organisation + un hôtel + un admin scopé à cet hôtel, en un appel.
