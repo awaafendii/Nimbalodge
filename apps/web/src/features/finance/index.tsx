@@ -28,6 +28,15 @@ import {
   useCreateBankTransaction,
   useUpdateBankAccount,
 } from "../../hooks/use-bank-accounts.js";
+import {
+  useAddBudgetLine,
+  useBudget,
+  useBudgetExecution,
+  useBudgets,
+  useCheckBudgetOverspend,
+  useCreateBudget,
+} from "../../hooks/use-budgets.js";
+import { useDepartments } from "../../hooks/use-departments.js";
 import { useHotels } from "../../hooks/use-hotels.js";
 import {
   useApproveExpense,
@@ -45,7 +54,15 @@ import {
   useUpdateCashAccount,
 } from "../../hooks/use-finance-entries.js";
 import type { BankAccount, BankTransaction } from "../../services/bank-accounts.js";
-import type { CashAccount, CashTransaction, Expense, PaymentMethod, TransactionDirection } from "../../services/finance-entries.js";
+import type { Budget, BudgetPeriod } from "../../services/budgets.js";
+import type {
+  CashAccount,
+  CashTransaction,
+  Expense,
+  FinancialCategoryType,
+  PaymentMethod,
+  TransactionDirection,
+} from "../../services/finance-entries.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "BANK_TRANSFER", "MOBILE_MONEY", "CARD", "CHECK", "OTHER"];
@@ -69,6 +86,14 @@ const EXPENSE_STATUS_LABELS: Record<Expense["status"], string> = {
 
 const DIRECTION_LABELS: Record<TransactionDirection, string> = { IN: "Entrée", OUT: "Sortie" };
 
+const BUDGET_PERIOD_LABELS: Record<BudgetPeriod, string> = {
+  ANNUAL: "Annuel",
+  QUARTERLY: "Trimestriel",
+  MONTHLY: "Mensuel",
+};
+
+const CATEGORY_TYPE_LABELS: Record<FinancialCategoryType, string> = { REVENUE: "Recette", EXPENSE: "Dépense" };
+
 // Module de référence pour le branchement frontend↔backend (Phase 14) : listes réelles (GET
 // /revenues, GET /expenses), création réelle, workflow d'approbation de dépense réel — aucune
 // donnée fabriquée. Catégories/caisses viennent de ce que l'hôtel a lui-même configuré (Paramètres,
@@ -81,6 +106,7 @@ export default function FinancePage() {
       <ExpensesCard />
       <CashAccountsCard />
       <BankAccountsCard />
+      <BudgetsCard />
     </div>
   );
 }
@@ -1109,6 +1135,384 @@ function BankTransactionsView({ account }: { account: BankAccount }) {
             </ul>
           )
         }
+      </QueryState>
+    </div>
+  );
+}
+
+function BudgetsCard() {
+  const user = useAuthStore((s) => s.user);
+  const budgets = useBudgets();
+  const hotels = useHotels();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [executionTarget, setExecutionTarget] = useState<Budget | null>(null);
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Budgets</CardTitle>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Icons.IconPlus />
+              Créer un budget
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <CreateBudgetForm
+              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+              onDone={() => setCreateDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        <QueryState
+          isLoading={budgets.isLoading}
+          error={budgets.error}
+          data={budgets.data}
+          onRetry={() => budgets.refetch()}
+          isEmpty={(data) => data.length === 0}
+          emptyTitle="Aucun budget créé"
+          emptyDescription="Créez votre premier budget pour commencer à suivre vos écarts prévu/réalisé."
+          emptyAction={
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Icons.IconPlus />
+              Créer un budget
+            </Button>
+          }
+        >
+          {(data) => {
+            const columns: DataTableColumn<Budget>[] = [
+              {
+                id: "name",
+                header: "Nom",
+                sortValue: (budget) => budget.name.toLowerCase(),
+                cell: (budget) => (
+                  <div className="flex items-center gap-2">
+                    <span className="font-[var(--fw-subtitle-strong)] text-sm">{budget.name}</span>
+                    {!budget.isActive ? <Badge variant="outline">Inactif</Badge> : null}
+                  </div>
+                ),
+              },
+              {
+                id: "period",
+                header: "Période",
+                cell: (budget) => (
+                  <span className="text-sm">
+                    {BUDGET_PERIOD_LABELS[budget.periodType]} · {new Date(budget.startDate).toLocaleDateString("fr-FR")} →{" "}
+                    {new Date(budget.endDate).toLocaleDateString("fr-FR")}
+                  </span>
+                ),
+              },
+              {
+                id: "actions",
+                header: "",
+                align: "right",
+                cell: (budget) => (
+                  <Button variant="outline" size="sm" onClick={() => setExecutionTarget(budget)}>
+                    Voir l'exécution
+                  </Button>
+                ),
+              },
+            ];
+            return (
+              <DataTable
+                columns={columns}
+                data={data}
+                getRowId={(budget) => budget.id}
+                searchableText={(budget) => budget.name}
+                searchPlaceholder="Rechercher un budget…"
+                emptyMessage="Aucun budget ne correspond à cette recherche."
+              />
+            );
+          }}
+        </QueryState>
+      </CardContent>
+
+      <Dialog open={executionTarget !== null} onOpenChange={(open) => !open && setExecutionTarget(null)}>
+        <DialogContent className="max-w-2xl">
+          {executionTarget ? <BudgetExecutionView budget={executionTarget} /> : null}
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function CreateBudgetForm({
+  hotelOptions,
+  onDone,
+}: {
+  hotelOptions: { id: string; name: string }[];
+  onDone: () => void;
+}) {
+  const createBudget = useCreateBudget();
+  const [name, setName] = useState("");
+  const [periodType, setPeriodType] = useState<BudgetPeriod>("ANNUAL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [hotelId, setHotelId] = useState("");
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!name || !startDate || !endDate) return;
+    createBudget.mutate(
+      { name, periodType, startDate, endDate, hotelId: hotelId || undefined },
+      { onSuccess: onDone }
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Créer un budget</DialogTitle>
+      </DialogHeader>
+
+      {hotelOptions.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-hotel">Hôtel</Label>
+          <select
+            id="budget-hotel"
+            required
+            value={hotelId}
+            onChange={(event) => setHotelId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner un hôtel
+            </option>
+            {hotelOptions.map((hotel) => (
+              <option key={hotel.id} value={hotel.id}>
+                {hotel.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="budget-name">Nom</Label>
+        <Input id="budget-name" required value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="budget-period">Périodicité</Label>
+        <select
+          id="budget-period"
+          value={periodType}
+          onChange={(event) => setPeriodType(event.target.value as BudgetPeriod)}
+          className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+        >
+          {(Object.keys(BUDGET_PERIOD_LABELS) as BudgetPeriod[]).map((value) => (
+            <option key={value} value={value}>
+              {BUDGET_PERIOD_LABELS[value]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-start">Début</Label>
+          <Input id="budget-start" type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-end">Fin</Label>
+          <Input id="budget-end" type="date" required value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+      </div>
+
+      {createBudget.isError ? (
+        <p className="text-sm text-destructive">
+          {createBudget.error instanceof Error ? createBudget.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <DialogFooter>
+        <Button type="submit" disabled={createBudget.isPending}>
+          {createBudget.isPending ? "Création…" : "Créer"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function BudgetExecutionView({ budget }: { budget: Budget }) {
+  const detail = useBudget(budget.id);
+  const execution = useBudgetExecution(budget.id);
+  const addLine = useAddBudgetLine();
+  const checkOverspend = useCheckBudgetOverspend();
+  const departments = useDepartments();
+  const categories = useFinancialCategories();
+
+  const [lineType, setLineType] = useState<FinancialCategoryType>("EXPENSE");
+  const [plannedAmount, setPlannedAmount] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+
+  const departmentNameById = new Map((departments.data ?? []).map((department) => [department.id, department.name]));
+  const categoryNameById = new Map((categories.data ?? []).map((category) => [category.id, category.name]));
+  const matchingCategories = (categories.data ?? []).filter((category) => category.type === lineType);
+
+  function handleAddLine(event: FormEvent) {
+    event.preventDefault();
+    const parsedAmount = Number(plannedAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return;
+    addLine.mutate(
+      {
+        budgetId: budget.id,
+        input: {
+          type: lineType,
+          plannedAmount: parsedAmount,
+          departmentId: departmentId || undefined,
+          categoryId: categoryId || undefined,
+        },
+      },
+      { onSuccess: () => { setPlannedAmount(""); setDepartmentId(""); setCategoryId(""); } }
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>
+          {budget.name} — {BUDGET_PERIOD_LABELS[budget.periodType]}
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {new Date(budget.startDate).toLocaleDateString("fr-FR")} → {new Date(budget.endDate).toLocaleDateString("fr-FR")}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={checkOverspend.isPending}
+          onClick={() => checkOverspend.mutate(budget.id)}
+        >
+          Vérifier les dépassements
+        </Button>
+      </div>
+      {checkOverspend.data ? (
+        <p className="text-sm text-muted-foreground">
+          {checkOverspend.data.overspentLineCount === 0
+            ? "Aucune ligne en dépassement."
+            : `${checkOverspend.data.overspentLineCount} ligne(s) en dépassement — ${checkOverspend.data.notificationsCreated} notification(s) créée(s).`}
+        </p>
+      ) : null}
+
+      <form onSubmit={handleAddLine} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-line-type">Type</Label>
+          <select
+            id="budget-line-type"
+            value={lineType}
+            onChange={(event) => {
+              setLineType(event.target.value as FinancialCategoryType);
+              setCategoryId("");
+            }}
+            className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            {(Object.keys(CATEGORY_TYPE_LABELS) as FinancialCategoryType[]).map((value) => (
+              <option key={value} value={value}>
+                {CATEGORY_TYPE_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-line-department">Département (optionnel)</Label>
+          <select
+            id="budget-line-department"
+            value={departmentId}
+            onChange={(event) => setDepartmentId(event.target.value)}
+            className="flex h-9 w-36 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="">Tous</option>
+            {(departments.data ?? []).map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-line-category">Catégorie (optionnel)</Label>
+          <select
+            id="budget-line-category"
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className="flex h-9 w-36 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="">Toutes</option>
+            {matchingCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="budget-line-amount">Prévu (GNF)</Label>
+          <Input
+            id="budget-line-amount"
+            type="number"
+            min={0.01}
+            step="0.01"
+            required
+            className="w-32"
+            value={plannedAmount}
+            onChange={(e) => setPlannedAmount(e.target.value)}
+          />
+        </div>
+        <Button type="submit" size="sm" disabled={addLine.isPending}>
+          {addLine.isPending ? "…" : "Ajouter une ligne"}
+        </Button>
+      </form>
+      {addLine.isError ? (
+        <p className="text-sm text-destructive">
+          {addLine.error instanceof Error ? addLine.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <QueryState
+        isLoading={execution.isLoading || detail.isLoading}
+        error={execution.error ?? detail.error}
+        data={execution.data}
+        isEmpty={(data) => data.lines.length === 0}
+        emptyTitle="Aucune ligne de budget"
+        emptyDescription="Ajoutez une première ligne ci-dessus pour commencer le suivi."
+      >
+        {(data) => (
+          <ul className="flex flex-col divide-y divide-border">
+            {data.lines.map((line) => {
+              const detailLine = detail.data?.lines.find((l) => l.id === line.lineId);
+              const label = [
+                detailLine?.departmentId ? departmentNameById.get(detailLine.departmentId) : null,
+                detailLine?.categoryId ? categoryNameById.get(detailLine.categoryId) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "Toutes dimensions";
+              const overspent = line.type === "EXPENSE" && Number(line.actual) > Number(line.planned);
+              return (
+                <li key={line.lineId} className="flex flex-col gap-1 py-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-[var(--fw-subtitle-strong)]">{label}</span>
+                    <Badge variant="secondary">{CATEGORY_TYPE_LABELS[line.type]}</Badge>
+                  </div>
+                  <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                    <span>Prévu : {fmtGNF(Number(line.planned))}</span>
+                    <span className={overspent ? "font-[var(--fw-subtitle-strong)] text-critical" : ""}>
+                      Réalisé : {fmtGNF(Number(line.actual))}
+                    </span>
+                    <span>Écart : {fmtGNF(Number(line.variance))}</span>
+                    <span>Taux : {Number(line.executionRate).toFixed(0)}%</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </QueryState>
     </div>
   );

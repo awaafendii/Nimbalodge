@@ -2,11 +2,12 @@ import { apiClient } from "./api-client.js";
 
 export type PaymentMethod = "CASH" | "BANK_TRANSFER" | "MOBILE_MONEY" | "CARD" | "CHECK" | "OTHER";
 export type ExpenseStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PAID" | "BOOKED";
+export type FinancialCategoryType = "REVENUE" | "EXPENSE";
 
 export interface FinancialCategory {
   id: string;
   hotelId: string;
-  type: "REVENUE" | "EXPENSE";
+  type: FinancialCategoryType;
   name: string;
   code: string | null;
   description: string | null;
