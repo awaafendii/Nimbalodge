@@ -2,8 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { Prisma } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { toBudgetLineResponse, toBudgetResponse } from "./dto/budget-response.dto";
 import { CreateBudgetLineDto } from "./dto/create-budget-line.dto";
@@ -14,7 +15,8 @@ import { UpdateBudgetDto } from "./dto/update-budget.dto";
 export class BudgetsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly departmentsService: DepartmentsService
   ) {}
 
   async list(requester: AuthenticatedUser) {
@@ -27,10 +29,19 @@ export class BudgetsService {
     return budgets.map(toBudgetResponse);
   }
 
+  // Étape 5 — Budget lui-même n'a pas de departmentId (c'est un conteneur hôtel partagé : un
+  // même "Budget 2026" reçoit des lignes de plusieurs départements), donc contrairement à
+  // Expense, le scope départemental ne restreint pas l'accès au budget lui-même — seulement aux
+  // lignes qu'un demandeur départemental peut voir/agir dessus (le dimensionnement réel vit sur
+  // BudgetLine). Un demandeur sans affectation (departmentIds vide) voit toutes les lignes,
+  // comme avant.
   async findOne(id: string, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(id);
     assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
-    const lines = await this.prisma.budgetLine.findMany({ where: { budgetId: id } });
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    const lines = await this.prisma.budgetLine.findMany({
+      where: { budgetId: id, ...(departmentIds.length > 0 ? { departmentId: { in: departmentIds } } : {}) },
+    });
     return { ...toBudgetResponse(budget), lines: lines.map(toBudgetLineResponse) };
   }
 
@@ -79,6 +90,8 @@ export class BudgetsService {
   async addLine(budgetId: string, dto: CreateBudgetLineDto, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(budgetId);
     assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(dto.departmentId ?? null, departmentIds);
 
     if (dto.departmentId) {
       const department = await this.prisma.department.findUnique({ where: { id: dto.departmentId } });
@@ -131,8 +144,11 @@ export class BudgetsService {
   async getExecution(budgetId: string, requester: AuthenticatedUser) {
     const budget = await this.findWithHotelOrThrow(budgetId);
     assertInScope(budget.hotel.organizationId, budget.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
 
-    const lines = await this.prisma.budgetLine.findMany({ where: { budgetId } });
+    const lines = await this.prisma.budgetLine.findMany({
+      where: { budgetId, ...(departmentIds.length > 0 ? { departmentId: { in: departmentIds } } : {}) },
+    });
 
     const results = await Promise.all(
       lines.map(async (line) => {
@@ -180,7 +196,10 @@ export class BudgetsService {
 
   // "Alertes de dépassement budgétaire" (Phase 5, prévu pour Phase 12 — "données déjà
   // interrogeables"). Déclenchement à la demande (pas de scheduler dans ce projet, aucune
-  // infrastructure cron établie) : réutilise getExecution() telle quelle, ne recalcule rien.
+  // infrastructure cron établie) : réutilise getExecution() telle quelle, ne recalcule rien —
+  // hérite donc aussi de son filtrage départemental (Étape 5) : un responsable de département
+  // ne déclenche des alertes que sur les lignes de son propre département, jamais sur celles des
+  // autres départements du même budget.
   // Seules les lignes EXPENSE comptent (un dépassement REVENUE est une bonne nouvelle, pas une
   // alerte). Fan-out + déduplication délégués à NotificationsService.notifyUsersWithPermission()
   // (relatedType="budget_line" — une alerte par ligne en dépassement, jamais répétée une fois
