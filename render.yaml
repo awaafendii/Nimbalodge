@@ -20,11 +20,15 @@ services:
     # --include=dev : NODE_ENV=production (déclaré plus bas) fait sauter les devDependencies par
     # défaut à `npm install` — sans ce flag, @nestjs/cli/typescript/prisma (nécessaires pour
     # compiler) ne sont jamais installés (`sh: 1: nest: not found`).
-    buildCommand: npm install --include=dev && npm run db:generate && npm run build:api
+    # build:bootstrap précompile prisma/bootstrap-production.ts en JS — le lancer via ts-node au
+    # démarrage (transpilation à la volée) fait OOM sur le plan free (512 Mo RAM) : ts-node charge
+    # le compilateur TypeScript complet en mémoire pour un script qui tourne à chaque redémarrage,
+    # alors qu'un `node script.js` compilé n'a besoin de rien de tout ça.
+    buildCommand: npm install --include=dev && npm run db:generate && npm run build:api && npm run build:bootstrap
     # Migration + bootstrap avant chaque démarrage — les deux sont idempotents (migrate deploy
     # n'applique que les migrations en attente, bootstrap-production ignore silencieusement si le
     # compte admin existe déjà), donc sans danger à répéter à chaque redémarrage/scale.
-    startCommand: npm run db:migrate:deploy && npm run bootstrap:production && npm run start:api
+    startCommand: npm run db:migrate:deploy && npm run bootstrap:production:compiled && npm run start:api
     healthCheckPath: /api/v1/health
     envVars:
       - key: DATABASE_URL

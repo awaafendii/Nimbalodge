@@ -27,7 +27,9 @@
     "db:seed": "prisma db seed --schema=prisma/schema.prisma",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "bootstrap:production": "ts-node --project prisma/tsconfig.json prisma/bootstrap-production.ts"
+    "bootstrap:production": "ts-node --project prisma/tsconfig.json prisma/bootstrap-production.ts",
+    "build:bootstrap": "tsc --project prisma/tsconfig.json",
+    "bootstrap:production:compiled": "node prisma/dist/bootstrap-production.js"
   },
   "prisma": {
     "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"

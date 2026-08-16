@@ -5,7 +5,8 @@
     "moduleResolution": "node",
     "noEmit": false,
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    "outDir": "./dist"
   },
   "include": ["seed.ts", "bootstrap-production.ts", "permissions-catalog.ts"]
 }
