@@ -17,6 +17,7 @@ import {
   Icons,
   Input,
   Label,
+  StatusBadge,
   type DataTableColumn,
 } from "@nimbalodge/ui";
 
@@ -53,6 +54,16 @@ import {
   useSubmitExpense,
   useUpdateCashAccount,
 } from "../../hooks/use-finance-entries.js";
+import {
+  useCancelInvoice,
+  useCreateCreditNote,
+  useCreateInvoice,
+  useCreatePayment,
+  useCreditNotes,
+  useInvoices,
+  useIssueInvoice,
+  usePayments,
+} from "../../hooks/use-invoices.js";
 import type { BankAccount, BankTransaction } from "../../services/bank-accounts.js";
 import type { Budget, BudgetPeriod } from "../../services/budgets.js";
 import type {
@@ -63,6 +74,7 @@ import type {
   PaymentMethod,
   TransactionDirection,
 } from "../../services/finance-entries.js";
+import type { ClientType, Invoice } from "../../services/invoices.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "BANK_TRANSFER", "MOBILE_MONEY", "CARD", "CHECK", "OTHER"];
@@ -94,6 +106,8 @@ const BUDGET_PERIOD_LABELS: Record<BudgetPeriod, string> = {
 
 const CATEGORY_TYPE_LABELS: Record<FinancialCategoryType, string> = { REVENUE: "Recette", EXPENSE: "Dépense" };
 
+const CLIENT_TYPE_LABELS: Record<ClientType, string> = { INDIVIDUAL: "Particulier", COMPANY: "Entreprise" };
+
 // Module de référence pour le branchement frontend↔backend (Phase 14) : listes réelles (GET
 // /revenues, GET /expenses), création réelle, workflow d'approbation de dépense réel — aucune
 // donnée fabriquée. Catégories/caisses viennent de ce que l'hôtel a lui-même configuré (Paramètres,
@@ -107,6 +121,7 @@ export default function FinancePage() {
       <CashAccountsCard />
       <BankAccountsCard />
       <BudgetsCard />
+      <InvoicesCard />
     </div>
   );
 }
@@ -1513,6 +1528,632 @@ function BudgetExecutionView({ budget }: { budget: Budget }) {
             })}
           </ul>
         )}
+      </QueryState>
+    </div>
+  );
+}
+
+interface InvoiceLineDraft {
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discountRate: string;
+  taxRate: string;
+}
+
+function InvoicesCard() {
+  const user = useAuthStore((s) => s.user);
+  const invoices = useInvoices();
+  const hotels = useHotels();
+  const issueInvoice = useIssueInvoice();
+  const cancelInvoice = useCancelInvoice();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [detailTargetId, setDetailTargetId] = useState<string | null>(null);
+  const anyPending = issueInvoice.isPending || cancelInvoice.isPending;
+  const detailTarget = invoices.data?.find((invoice) => invoice.id === detailTargetId) ?? null;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Facturation</CardTitle>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">
+              <Icons.IconPlus />
+              Nouvelle facture
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <CreateInvoiceForm
+              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+              onDone={() => setCreateDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        <QueryState
+          isLoading={invoices.isLoading}
+          error={invoices.error}
+          data={invoices.data}
+          onRetry={() => invoices.refetch()}
+          isEmpty={(data) => data.length === 0}
+          emptyTitle="Aucune facture créée"
+          emptyDescription="Créez votre première facture client."
+          emptyAction={
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Icons.IconPlus />
+              Nouvelle facture
+            </Button>
+          }
+        >
+          {(data) => {
+            const columns: DataTableColumn<Invoice>[] = [
+              {
+                id: "number",
+                header: "N°",
+                cell: (invoice) => invoice.invoiceNumber ?? "Brouillon",
+              },
+              {
+                id: "client",
+                header: "Client",
+                sortValue: (invoice) => invoice.clientName.toLowerCase(),
+                cell: (invoice) => invoice.clientName,
+              },
+              {
+                id: "total",
+                header: "Montant total",
+                align: "right",
+                sortValue: (invoice) => Number(invoice.grandTotal),
+                cell: (invoice) => fmtGNF(Number(invoice.grandTotal)),
+              },
+              {
+                id: "due",
+                header: "Solde dû",
+                align: "right",
+                sortValue: (invoice) => Number(invoice.dueBalance),
+                cell: (invoice) => fmtGNF(Number(invoice.dueBalance)),
+              },
+              {
+                id: "status",
+                header: "Statut",
+                cell: (invoice) => <StatusBadge status={invoice.status} />,
+              },
+              {
+                id: "actions",
+                header: "",
+                align: "right",
+                cell: (invoice) => (
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setDetailTargetId(invoice.id)}>
+                      Détails
+                    </Button>
+                    {invoice.status === "DRAFT" ? (
+                      <Button size="sm" disabled={anyPending} onClick={() => issueInvoice.mutate(invoice.id)}>
+                        Émettre
+                      </Button>
+                    ) : null}
+                    {invoice.status === "DRAFT" || invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={anyPending}
+                        onClick={() => cancelInvoice.mutate(invoice.id)}
+                      >
+                        Annuler
+                      </Button>
+                    ) : null}
+                  </div>
+                ),
+              },
+            ];
+            return (
+              <DataTable
+                columns={columns}
+                data={data}
+                getRowId={(invoice) => invoice.id}
+                searchableText={(invoice) => `${invoice.invoiceNumber ?? ""} ${invoice.clientName}`}
+                searchPlaceholder="Rechercher par numéro ou client…"
+                emptyMessage="Aucune facture ne correspond à cette recherche."
+              />
+            );
+          }}
+        </QueryState>
+      </CardContent>
+
+      <Dialog open={detailTargetId !== null} onOpenChange={(open) => !open && setDetailTargetId(null)}>
+        <DialogContent className="max-w-2xl">
+          {detailTarget ? <InvoiceDetailView invoice={detailTarget} /> : null}
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+function CreateInvoiceForm({
+  hotelOptions,
+  onDone,
+}: {
+  hotelOptions: { id: string; name: string }[];
+  onDone: () => void;
+}) {
+  const createInvoice = useCreateInvoice();
+  const categories = useFinancialCategories();
+  const revenueCategories = (categories.data ?? []).filter((c) => c.type === "REVENUE" && c.isActive);
+
+  const [categoryId, setCategoryId] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientType, setClientType] = useState<ClientType>("INDIVIDUAL");
+  const [dueDate, setDueDate] = useState("");
+  const [hotelId, setHotelId] = useState("");
+  const [lines, setLines] = useState<InvoiceLineDraft[]>([
+    { description: "", quantity: "1", unitPrice: "", discountRate: "", taxRate: "" },
+  ]);
+
+  function updateLine(index: number, patch: Partial<InvoiceLineDraft>) {
+    setLines((current) => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+  function addLine() {
+    setLines((current) => [...current, { description: "", quantity: "1", unitPrice: "", discountRate: "", taxRate: "" }]);
+  }
+  function removeLine(index: number) {
+    setLines((current) => (current.length > 1 ? current.filter((_, i) => i !== index) : current));
+  }
+
+  const total = lines.reduce((sum, line) => {
+    const quantity = Number(line.quantity) || 0;
+    const unitPrice = Number(line.unitPrice) || 0;
+    const discountRate = Number(line.discountRate) || 0;
+    const taxRate = Number(line.taxRate) || 0;
+    const base = quantity * unitPrice;
+    return sum + (base - base * discountRate) * (1 + taxRate);
+  }, 0);
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!categoryId || !clientName) return;
+    const validLines = lines
+      .filter((line) => line.description && line.quantity && line.unitPrice)
+      .map((line) => ({
+        description: line.description,
+        quantity: Number(line.quantity),
+        unitPrice: Number(line.unitPrice),
+        discountRate: line.discountRate ? Number(line.discountRate) : undefined,
+        taxRate: line.taxRate ? Number(line.taxRate) : undefined,
+      }));
+    if (validLines.length === 0) return;
+    createInvoice.mutate(
+      {
+        categoryId,
+        clientName,
+        clientType,
+        dueDate: dueDate || undefined,
+        lines: validLines,
+        hotelId: hotelId || undefined,
+      },
+      { onSuccess: onDone }
+    );
+  }
+
+  if (categories.isLoading) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">Chargement…</p>;
+  }
+
+  if (revenueCategories.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 py-4">
+        <DialogHeader>
+          <DialogTitle>Nouvelle facture</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Aucune catégorie de recette configurée pour cet hôtel. Configurez-en une avant de créer une facture.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Nouvelle facture</DialogTitle>
+      </DialogHeader>
+
+      {hotelOptions.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invoice-hotel">Hôtel</Label>
+          <select
+            id="invoice-hotel"
+            required
+            value={hotelId}
+            onChange={(event) => setHotelId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner un hôtel
+            </option>
+            {hotelOptions.map((hotel) => (
+              <option key={hotel.id} value={hotel.id}>
+                {hotel.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invoice-category">Catégorie</Label>
+          <select
+            id="invoice-category"
+            required
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner
+            </option>
+            {revenueCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invoice-client-type">Type de client</Label>
+          <select
+            id="invoice-client-type"
+            value={clientType}
+            onChange={(event) => setClientType(event.target.value as ClientType)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            {(Object.keys(CLIENT_TYPE_LABELS) as ClientType[]).map((value) => (
+              <option key={value} value={value}>
+                {CLIENT_TYPE_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invoice-client-name">Client</Label>
+          <Input id="invoice-client-name" required value={clientName} onChange={(e) => setClientName(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invoice-due-date">Échéance (optionnel)</Label>
+          <Input id="invoice-due-date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Lignes</Label>
+        {lines.map((line, index) => (
+          <div key={index} className="grid grid-cols-[1fr_4rem_6rem_4rem_4rem_auto] items-center gap-2">
+            <Input
+              placeholder="Description"
+              required
+              value={line.description}
+              onChange={(event) => updateLine(index, { description: event.target.value })}
+            />
+            <Input
+              type="number"
+              min={0.01}
+              step="0.01"
+              placeholder="Qté"
+              required
+              value={line.quantity}
+              onChange={(event) => updateLine(index, { quantity: event.target.value })}
+            />
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Prix unit."
+              required
+              value={line.unitPrice}
+              onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
+            />
+            <Input
+              type="number"
+              min={0}
+              max={1}
+              step="0.01"
+              placeholder="Remise"
+              value={line.discountRate}
+              onChange={(event) => updateLine(index, { discountRate: event.target.value })}
+            />
+            <Input
+              type="number"
+              min={0}
+              max={1}
+              step="0.01"
+              placeholder="Taxe"
+              value={line.taxRate}
+              onChange={(event) => updateLine(index, { taxRate: event.target.value })}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={lines.length === 1}
+              onClick={() => removeLine(index)}
+              aria-label="Retirer la ligne"
+            >
+              <Icons.IconClose />
+            </Button>
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground">Remise/Taxe en fraction (0.18 = 18%), optionnelles.</p>
+        <Button type="button" variant="outline" size="sm" onClick={addLine} className="self-start">
+          <Icons.IconPlus />
+          Ajouter une ligne
+        </Button>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        Total : <span className="font-[var(--fw-subtitle-strong)] text-foreground">{fmtGNF(total)}</span>
+      </p>
+
+      {createInvoice.isError ? (
+        <p className="text-sm text-destructive">
+          {createInvoice.error instanceof Error ? createInvoice.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <DialogFooter>
+        <Button type="submit" disabled={createInvoice.isPending}>
+          {createInvoice.isPending ? "Création…" : "Créer"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function InvoiceDetailView({ invoice }: { invoice: Invoice }) {
+  const payments = usePayments(invoice.id);
+  const creditNotes = useCreditNotes(invoice.id);
+  const cashAccounts = useCashAccounts();
+  const bankAccounts = useBankAccounts();
+  const createPayment = useCreatePayment();
+  const createCreditNote = useCreateCreditNote();
+
+  const canPay = invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID";
+  const canCredit = invoice.status !== "DRAFT" && invoice.status !== "CANCELLED";
+
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+  const [paymentAccount, setPaymentAccount] = useState("");
+
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [creditAccount, setCreditAccount] = useState("");
+
+  const accountOptions = [
+    ...(cashAccounts.data ?? []).filter((a) => a.isActive).map((a) => ({ id: `cash:${a.id}`, label: `Caisse — ${a.name}` })),
+    ...(bankAccounts.data ?? []).filter((a) => a.isActive).map((a) => ({ id: `bank:${a.id}`, label: `Banque — ${a.name}` })),
+  ];
+
+  function handleAddPayment(event: FormEvent) {
+    event.preventDefault();
+    const amount = Number(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0 || !paymentAccount) return;
+    const [kind, id] = paymentAccount.split(":");
+    createPayment.mutate(
+      {
+        invoiceId: invoice.id,
+        input: {
+          amount,
+          paymentMethod,
+          cashAccountId: kind === "cash" ? id : undefined,
+          bankAccountId: kind === "bank" ? id : undefined,
+        },
+      },
+      { onSuccess: () => { setPaymentAmount(""); setPaymentAccount(""); } }
+    );
+  }
+
+  function handleAddCreditNote(event: FormEvent) {
+    event.preventDefault();
+    const amount = Number(creditAmount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const [kind, id] = creditAccount ? creditAccount.split(":") : [undefined, undefined];
+    createCreditNote.mutate(
+      {
+        invoiceId: invoice.id,
+        input: {
+          amount,
+          reason: creditReason || undefined,
+          cashAccountId: kind === "cash" ? id : undefined,
+          bankAccountId: kind === "bank" ? id : undefined,
+        },
+      },
+      { onSuccess: () => { setCreditAmount(""); setCreditReason(""); setCreditAccount(""); } }
+    );
+  }
+
+  return (
+    <div className="flex max-h-[80vh] flex-col gap-4 overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>
+          {invoice.invoiceNumber ?? "Brouillon"} — {invoice.clientName}
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="grid grid-cols-2 gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-4">
+        <div>
+          <p className="text-xs text-muted-foreground">Sous-total</p>
+          <p className="font-[var(--fw-subtitle-strong)]">{fmtGNF(Number(invoice.subtotal))}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="font-[var(--fw-subtitle-strong)]">{fmtGNF(Number(invoice.grandTotal))}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Payé</p>
+          <p className="font-[var(--fw-subtitle-strong)] text-good">{fmtGNF(Number(invoice.amountPaid))}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Solde dû</p>
+          <p className="font-[var(--fw-subtitle-strong)]">{fmtGNF(Number(invoice.dueBalance))}</p>
+        </div>
+      </div>
+
+      <ul className="flex flex-col divide-y divide-border">
+        {invoice.lines.map((line) => (
+          <li key={line.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate">{line.description}</span>
+            <span className="text-muted-foreground">
+              {line.quantity} × {fmtGNF(Number(line.unitPrice))}
+            </span>
+            <span className="font-[var(--fw-subtitle-strong)]">{fmtGNF(Number(line.lineTotal))}</span>
+          </li>
+        ))}
+      </ul>
+
+      {canPay ? (
+        <form onSubmit={handleAddPayment} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="payment-amount">Montant</Label>
+            <Input
+              id="payment-amount"
+              type="number"
+              min={0.01}
+              step="0.01"
+              required
+              className="w-32"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="payment-method">Mode</Label>
+            <select
+              id="payment-method"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}
+              className="flex h-9 w-32 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              {PAYMENT_METHODS.map((method) => (
+                <option key={method} value={method}>
+                  {PAYMENT_METHOD_LABELS[method]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="payment-account">Compte</Label>
+            <select
+              id="payment-account"
+              required
+              value={paymentAccount}
+              onChange={(event) => setPaymentAccount(event.target.value)}
+              className="flex h-9 w-40 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="" disabled>
+                Sélectionner
+              </option>
+              {accountOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit" size="sm" disabled={createPayment.isPending}>
+            {createPayment.isPending ? "…" : "Encaisser"}
+          </Button>
+        </form>
+      ) : null}
+      {createPayment.isError ? (
+        <p className="text-sm text-destructive">
+          {createPayment.error instanceof Error ? createPayment.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <QueryState isLoading={payments.isLoading} error={payments.error} data={payments.data}>
+        {(data) =>
+          data.length > 0 ? (
+            <ul className="flex flex-col divide-y divide-border text-sm">
+              {data.map((payment) => (
+                <li key={payment.id} className="flex items-center justify-between py-2">
+                  <span className="text-muted-foreground">{new Date(payment.date).toLocaleDateString("fr-FR")}</span>
+                  <span className="font-[var(--fw-subtitle-strong)] text-good">+{fmtGNF(Number(payment.amount))}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null
+        }
+      </QueryState>
+
+      {canCredit ? (
+        <form onSubmit={handleAddCreditNote} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="credit-amount">Avoir — Montant</Label>
+            <Input
+              id="credit-amount"
+              type="number"
+              min={0.01}
+              step="0.01"
+              required
+              className="w-32"
+              value={creditAmount}
+              onChange={(e) => setCreditAmount(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="credit-reason">Motif (optionnel)</Label>
+            <Input
+              id="credit-reason"
+              className="w-40"
+              value={creditReason}
+              onChange={(e) => setCreditReason(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="credit-account">Remboursement (optionnel)</Label>
+            <select
+              id="credit-account"
+              value={creditAccount}
+              onChange={(event) => setCreditAccount(event.target.value)}
+              className="flex h-9 w-44 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Aucun (avoir sur papier)</option>
+              {accountOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit" size="sm" disabled={createCreditNote.isPending}>
+            {createCreditNote.isPending ? "…" : "Émettre un avoir"}
+          </Button>
+        </form>
+      ) : null}
+      {createCreditNote.isError ? (
+        <p className="text-sm text-destructive">
+          {createCreditNote.error instanceof Error ? createCreditNote.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <QueryState isLoading={creditNotes.isLoading} error={creditNotes.error} data={creditNotes.data}>
+        {(data) =>
+          data.length > 0 ? (
+            <ul className="flex flex-col divide-y divide-border text-sm">
+              {data.map((note) => (
+                <li key={note.id} className="flex items-center justify-between py-2">
+                  <span className="text-muted-foreground">
+                    {new Date(note.date).toLocaleDateString("fr-FR")} {note.reason ? `— ${note.reason}` : ""}
+                  </span>
+                  <span className="font-[var(--fw-subtitle-strong)] text-critical">-{fmtGNF(Number(note.amount))}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null
+        }
       </QueryState>
     </div>
   );

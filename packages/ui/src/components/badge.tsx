@@ -80,6 +80,9 @@ const STATUS_LABELS: Record<string, string> = {
   // AuditOutcome (Phase 12)
   SUCCESS: "Succès",
   FAILURE: "Échec",
+  // InvoiceStatus (Phase 6) — DRAFT/PAID/CANCELLED déjà présents ci-dessus (même sémantique).
+  ISSUED: "Émise",
+  PARTIALLY_PAID: "Partiellement payée",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -114,6 +117,8 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   COMPLETED: "success",
   SUCCESS: "success",
   FAILURE: "critical",
+  ISSUED: "default",
+  PARTIALLY_PAID: "warning",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
