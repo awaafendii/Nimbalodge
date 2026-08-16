@@ -27,3 +27,13 @@ export function useUpdateRoom() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ROOMS_KEY }),
   });
 }
+
+// N'interroge le backend qu'une fois les deux dates renseignées — évite un appel avec des query
+// params invalides (checkIn/checkOut requis côté DTO).
+export function useAvailableRooms(checkIn: string, checkOut: string) {
+  return useQuery({
+    queryKey: ["rooms", "available", checkIn, checkOut],
+    queryFn: () => roomsService.listAvailableRooms(checkIn, checkOut),
+    enabled: Boolean(checkIn && checkOut),
+  });
+}

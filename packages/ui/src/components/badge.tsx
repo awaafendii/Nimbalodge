@@ -45,6 +45,16 @@ const STATUS_LABELS: Record<string, string> = {
   paid: "Payée",
   pending: "En attente",
   late: "En retard",
+  // ReservationStatus (Phase 7) — clés en MAJUSCULES car alignées telles quelles sur l'enum
+  // backend (Prisma `ReservationStatus`), contrairement au vocabulaire minuscule ci-dessus hérité
+  // du prototype legacy. Réutilisable partout où un statut de réservation s'affiche (Réservations,
+  // futur Tableau de bord/Housekeeping) sans réécrire ce mapping à chaque écran.
+  PENDING: "En attente",
+  CONFIRMED: "Confirmée",
+  CHECKED_IN: "En séjour",
+  CHECKED_OUT: "Terminée",
+  CANCELLED: "Annulée",
+  NO_SHOW: "No-show",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -56,6 +66,12 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   crit: "critical",
   vacant: "neutral",
   neutral: "neutral",
+  PENDING: "warning",
+  CONFIRMED: "default",
+  CHECKED_IN: "success",
+  CHECKED_OUT: "neutral",
+  CANCELLED: "critical",
+  NO_SHOW: "critical",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {

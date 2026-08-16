@@ -38,3 +38,8 @@ export function createRoom(input: CreateRoomInput): Promise<Room> {
 export function updateRoom(id: string, input: UpdateRoomInput): Promise<Room> {
   return apiClient.patch<Room>(`/rooms/${id}`, input);
 }
+
+export function listAvailableRooms(checkIn: string, checkOut: string): Promise<Room[]> {
+  const params = new URLSearchParams({ checkIn, checkOut });
+  return apiClient.get<Room[]>(`/rooms/available?${params.toString()}`);
+}
