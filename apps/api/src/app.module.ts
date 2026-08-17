@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
+import { IdempotencyInterceptor } from "./common/interceptors/idempotency.interceptor";
 import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./database/prisma.module";
 import { ActivitiesModule } from "./modules/activities/activities.module";
@@ -96,6 +97,11 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    // Après AuditInterceptor : sur un cache-hit d'idempotence, la requête ne ré-exécute jamais le
+    // handler réel, donc AuditInterceptor journalise quand même l'appel HTTP reçu (comportement
+    // voulu — un replay reste une requête réelle du point de vue de l'audit), tandis que
+    // IdempotencyInterceptor court-circuite uniquement l'exécution métier elle-même.
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
   ],
 })
 export class AppModule {}

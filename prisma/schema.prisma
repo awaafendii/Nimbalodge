@@ -1674,3 +1674,29 @@ model StockMovement {
   @@index([toWarehouseId])
   @@index([type])
 }
+
+// ============================= OFFLINE (Étape 6) =============================
+
+/// Étape 6 (Offline) — idempotence des mutations rejouées après synchronisation hors ligne. Clé
+/// générée côté client (UUID v4), transmise via l'en-tête `Idempotency-Key` — opt-in strict : un
+/// client qui n'envoie pas cet en-tête n'est jamais concerné, comportement inchangé (voir
+/// `IdempotencyInterceptor`, `common/interceptors/`). Clé composite `(userId, key)` plutôt que
+/// `key` seule : un cache-hit ne doit jamais pouvoir renvoyer la réponse d'un autre utilisateur,
+/// même en cas de collision improbable d'UUID entre deux clients. `userId` en texte libre, sans FK
+/// — même principe qu'`AuditLog` (doit survivre à la suppression future de l'utilisateur, jamais
+/// être bloqué ni vidé par elle). Pas de purge automatique dans cet incrément (limite documentée,
+/// pas un oubli) : la table croît avec le nombre de mutations hors ligne rejouées, une tâche de
+/// nettoyage par ancienneté serait une évolution future si le volume le justifie.
+model IdempotencyKey {
+  userId         String
+  key            String
+  path           String
+  method         String
+  responseStatus Int
+  responseBody   Json?
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, key])
+  @@index([createdAt])
+}
