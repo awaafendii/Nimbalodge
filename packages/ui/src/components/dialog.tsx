@@ -33,7 +33,18 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+        // < md : feuille ancrée en bas (même primitive Radix Dialog que Sheet, voir sheet.tsx pour
+        // le même pattern de slide), défilable, coins arrondis en haut seulement — le clavier
+        // virtuel mobile réduit la hauteur visible, donc max-h-[85dvh] + overflow-y-auto plutôt
+        // qu'une hauteur fixe. Seuil md (768px), pas sm (640px) : doit coïncider avec celui de
+        // DataTable (repli en cartes sous md) pour qu'un même écran ne mélange jamais liste-cartes
+        // + modale centrée, ou liste-tableau + feuille du bas. ≥ md : redevient la modale centrée
+        // classique inchangée. Le max-w-* fourni par chaque appelant (jamais responsive lui-même,
+        // toujours une valeur nue comme max-w-lg/max-w-2xl) continue de s'appliquer tel quel à
+        // toutes les tailles — sur mobile il ne contraint rien puisque w-full est déjà plus étroit
+        // que n'importe quel viewport de téléphone.
+        "fixed inset-x-0 bottom-0 z-50 grid w-full max-h-[85dvh] gap-4 overflow-y-auto rounded-t-xl border border-border bg-card p-6 text-card-foreground shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        "md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[85vh] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95",
         className
       )}
       {...props}
@@ -53,7 +64,21 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 }
 
 export function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />;
+  return (
+    <div
+      className={cn(
+        // < md : reste atteignable pendant le défilement d'un long formulaire (sticky), fond plein
+        // + bordure pour se détacher visuellement du contenu qui défile derrière, padding bas
+        // conscient de la zone sûre (encoche/barre de gestes iOS). ≥ md : redevient la ligne
+        // d'actions en flux normal, inchangée. sm:flex-row (pré-existant) fait passer les boutons
+        // en ligne dès 640px, indépendamment du seuil md ci-dessus — une zone 640-768px avec des
+        // boutons en ligne dans une barre encore sticky reste un état cohérent, pas un bug.
+        "sticky bottom-0 -mx-6 flex flex-col-reverse gap-2 border-t border-border bg-card px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:flex-row sm:justify-end md:static md:mx-0 md:border-t-0 md:bg-transparent md:px-0 md:pb-0 md:pt-0",
+        className
+      )}
+      {...props}
+    />
+  );
 }
 
 export const DialogTitle = React.forwardRef<
