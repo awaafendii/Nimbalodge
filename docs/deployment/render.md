@@ -94,5 +94,9 @@ réel, pas une régression : configure ton premier hôtel toi-même depuis là.
   endroit, d'où le choix.
 - Domaine personnalisé — pas configuré (les URLs `*.onrender.com` par défaut sont utilisées).
   Ajoutable ensuite dans le dashboard Render, aucune limite technique de notre côté.
-- CI/CD — Render redéploie automatiquement à chaque push sur `main` par défaut (comportement
-  standard du Blueprint), pas de pipeline de tests avant déploiement configuré séparément.
+- Render redéploie automatiquement à chaque push sur `main` (comportement standard du Blueprint),
+  indépendamment du résultat de `.github/workflows/ci.yml` — la CI rapporte un statut mais ne
+  bloque pas le déploiement Render tant qu'une règle de protection de branche ne l'exige pas
+  explicitement côté GitHub (non configurée, décision à prendre séparément).
+- Sauvegarde de la base — voir `docs/deployment/database-backup.md` (non couverte par Render sur
+  le plan `free`).
