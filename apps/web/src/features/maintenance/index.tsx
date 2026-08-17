@@ -233,7 +233,7 @@ function CreateAssetForm({
         <Input id="asset-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="asset-category">Catégorie (optionnel)</Label>
           <Input id="asset-category" value={category} onChange={(e) => setCategory(e.target.value)} />
@@ -450,7 +450,7 @@ function CreateMaintenanceRequestForm({
         <Textarea id="mr-description" required value={description} onChange={(event) => setDescription(event.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="mr-asset">Équipement (optionnel)</Label>
           <select
@@ -706,7 +706,7 @@ function CreateInterventionForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="mi-type">Type</Label>
           <select
@@ -733,7 +733,7 @@ function CreateInterventionForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="mi-asset">Équipement (optionnel)</Label>
           <select
@@ -768,7 +768,7 @@ function CreateInterventionForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="mi-request">Demande liée (optionnel)</Label>
           <select

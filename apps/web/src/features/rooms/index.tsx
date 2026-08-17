@@ -206,7 +206,7 @@ function CreateRoomTypeForm({
         <Input id="room-type-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="room-type-code">Code (optionnel)</Label>
           <Input id="room-type-code" value={code} onChange={(e) => setCode(e.target.value)} />
@@ -447,7 +447,7 @@ function CreateRoomForm({
         <Input id="room-number" required value={number} onChange={(e) => setNumber(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="room-floor">Étage (optionnel)</Label>
           <Input id="room-floor" value={floor} onChange={(e) => setFloor(e.target.value)} />

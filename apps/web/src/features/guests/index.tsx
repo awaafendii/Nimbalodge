@@ -220,7 +220,7 @@ function CreateGuestForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="guest-first-name">Prénom</Label>
           <Input id="guest-first-name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -241,7 +241,7 @@ function CreateGuestForm({
         <Input id="guest-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="guest-document-type">Type de pièce (optionnel)</Label>
           <Input

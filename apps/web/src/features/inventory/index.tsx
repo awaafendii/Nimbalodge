@@ -230,7 +230,7 @@ function CreateWarehouseForm({
         <Input id="warehouse-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="warehouse-department">Département (optionnel)</Label>
           <select
@@ -485,7 +485,7 @@ function CreateProductForm({
         <Input id="product-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="product-sku">SKU (optionnel)</Label>
           <Input id="product-sku" value={sku} onChange={(e) => setSku(e.target.value)} />
@@ -496,7 +496,7 @@ function CreateProductForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="product-category">Catégorie (optionnel)</Label>
           <Input id="product-category" value={category} onChange={(e) => setCategory(e.target.value)} />
@@ -776,7 +776,7 @@ function CreateMovementForm({
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="movement-warehouse">{kind === "TRANSFER" ? "Entrepôt source" : "Entrepôt"}</Label>
           <select

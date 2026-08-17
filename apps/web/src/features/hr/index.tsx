@@ -237,7 +237,7 @@ function CreateEmployeeForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="employee-first-name">Prénom</Label>
           <Input id="employee-first-name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -248,7 +248,7 @@ function CreateEmployeeForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="employee-position">Poste (optionnel)</Label>
           <Input id="employee-position" value={position} onChange={(e) => setPosition(e.target.value)} />
@@ -284,7 +284,7 @@ function CreateEmployeeForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="employee-email">Email (optionnel)</Label>
           <Input id="employee-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -524,7 +524,7 @@ function CreateLeaveRequestForm({
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="leave-start">Début</Label>
           <Input id="leave-start" type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} />

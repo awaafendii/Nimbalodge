@@ -699,7 +699,7 @@ function CreateCashAccountForm({
         <Input id="cash-account-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="cash-account-code">Code (optionnel)</Label>
           <Input id="cash-account-code" value={code} onChange={(e) => setCode(e.target.value)} />
@@ -1013,7 +1013,7 @@ function CreateBankAccountForm({
         <Input id="bank-account-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="bank-account-bank-name">Banque (optionnel)</Label>
           <Input id="bank-account-bank-name" value={bankName} onChange={(e) => setBankName(e.target.value)} />
@@ -1326,7 +1326,7 @@ function CreateBudgetForm({
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="budget-start">Début</Label>
           <Input id="budget-start" type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -1780,7 +1780,7 @@ function CreateInvoiceForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-category">Catégorie</Label>
           <select
@@ -1817,7 +1817,7 @@ function CreateInvoiceForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-client-name">Client</Label>
           <Input id="invoice-client-name" required value={clientName} onChange={(e) => setClientName(e.target.value)} />

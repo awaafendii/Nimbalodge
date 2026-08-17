@@ -225,7 +225,7 @@ function CreateSupplierForm({
         <Input id="supplier-name" required value={name} onChange={(e) => setName(e.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="supplier-contact">Contact (optionnel)</Label>
           <Input id="supplier-contact" value={contactName} onChange={(e) => setContactName(e.target.value)} />
@@ -431,7 +431,7 @@ function CreatePurchaseRequestForm({
         <Textarea id="pr-description" required value={description} onChange={(event) => setDescription(event.target.value)} />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="pr-amount">Montant estimé (optionnel, GNF)</Label>
           <Input
@@ -705,7 +705,7 @@ function CreatePurchaseOrderForm({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="po-supplier">Fournisseur</Label>
           <select
