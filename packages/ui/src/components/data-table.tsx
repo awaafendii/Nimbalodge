@@ -34,6 +34,10 @@ export interface DataTableProps<T> {
   // Distinct de l'état "aucune donnée" de QueryState (en amont) : ici, des données existent mais
   // aucune ne correspond aux critères de recherche courants sur cette page.
   emptyMessage?: string;
+  // Sous md (voir le rendu en cartes plus bas), un rendu carte sur-mesure pour cet écran — sinon
+  // repli générique automatique (une carte par ligne, une paire label/valeur par colonne), qui
+  // fonctionne pour tous les appelants sans aucun changement de leur part.
+  renderMobileCard?: (row: T) => React.ReactNode;
 }
 
 type SortDirection = "asc" | "desc" | null;
@@ -56,6 +60,7 @@ export function DataTable<T>({
   toolbar,
   onRowClick,
   emptyMessage = "Aucun résultat pour ces critères.",
+  renderMobileCard,
 }: DataTableProps<T>) {
   const [search, setSearch] = React.useState("");
   const [sortColumnId, setSortColumnId] = React.useState<string | null>(null);
@@ -154,7 +159,10 @@ export function DataTable<T>({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      {/* ≥ md : tableau classique. < md : repli en cartes (voir bloc dédié plus bas) — deux rendus
+          de la même page de données, jamais les deux à la fois, aucun changement requis chez les
+          ~14 écrans consommateurs. */}
+      <div className="hidden overflow-x-auto rounded-lg border border-border md:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary/60 text-left text-xs font-[var(--fw-subtitle-strong)] uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -244,6 +252,51 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-col gap-2 md:hidden">
+        {pageRows.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border px-3 py-10 text-center text-sm text-muted-foreground">
+            {emptyMessage}
+          </div>
+        ) : (
+          pageRows.map((row) => {
+            const id = getRowId(row);
+            if (renderMobileCard) {
+              return <React.Fragment key={id}>{renderMobileCard(row)}</React.Fragment>;
+            }
+            return (
+              <div
+                key={id}
+                className={cn(
+                  "flex flex-col gap-2.5 rounded-lg border border-border bg-background p-3",
+                  onRowClick && "cursor-pointer active:bg-secondary/40"
+                )}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+              >
+                {selectable ? (
+                  <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds?.has(id) ?? false}
+                      onCheckedChange={() => toggleSelectRow(id)}
+                      aria-label="Sélectionner la ligne"
+                    />
+                  </div>
+                ) : null}
+                {columns.map((column) => (
+                  <div key={column.id} className="flex flex-col gap-0.5">
+                    {column.header ? (
+                      <span className="text-[11px] font-[var(--fw-subtitle-strong)] uppercase tracking-wide text-muted-foreground">
+                        {column.header}
+                      </span>
+                    ) : null}
+                    <div className="text-sm">{column.cell(row)}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })
+        )}
       </div>
 
       <Pagination page={clampedPage} pageCount={pageCount} onPageChange={setPage} />
