@@ -14,7 +14,7 @@ jobs:
     # fichier a ete produit — une sauvegarde jamais restauree n'est pas une sauvegarde fiable.
     services:
       restore-check:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: nimbalodge
           POSTGRES_PASSWORD: restore-check-password
@@ -39,11 +39,16 @@ jobs:
           mkdir -p backup
           STAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
-          # Image postgres:16-alpine (pas le client apt de l'image du runner) pour garantir une
-          # version de pg_dump alignee sur le serveur (voir docker-compose.yml / render.yaml).
-          # --no-owner/--no-privileges : dump portable, restaurable sous un role different de
-          # "nimbalodge" sans erreurs GRANT/OWNER.
-          docker run --rm postgres:16-alpine pg_dump --no-owner --no-privileges "$PROD_DATABASE_URL" \
+          # Image postgres:18-alpine (pas le client apt de l'image du runner) pour garantir une
+          # version de pg_dump au moins aussi recente que le serveur — pg_dump refuse par securite
+          # de sauvegarder un serveur plus recent que lui-meme. render.yaml ne precise aucune
+          # version dans son bloc `databases:`, donc Render a provisionne sa version par defaut
+          # actuelle (18.4 au moment d'ecrire ceci), differente du postgres:16-alpine fixe dans
+          # docker-compose.yml pour le dev local — decalage decouvert en test reel (premier run du
+          # workflow), pas anticipe au moment d'ecrire ce fichier. --no-owner/--no-privileges :
+          # dump portable, restaurable sous un role different de "nimbalodge" sans erreurs
+          # GRANT/OWNER.
+          docker run --rm postgres:18-alpine pg_dump --no-owner --no-privileges "$PROD_DATABASE_URL" \
             > "backup/nimbalodge-$STAMP.sql"
 
       - name: Verify the dump actually restores
