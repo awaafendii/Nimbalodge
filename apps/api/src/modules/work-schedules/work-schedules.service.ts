@@ -1,8 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { CreateWorkScheduleDto } from "./dto/create-work-schedule.dto";
 import { toWorkScheduleResponse } from "./dto/work-schedule-response.dto";
 import { UpdateWorkScheduleDto } from "./dto/update-work-schedule.dto";
@@ -11,13 +12,23 @@ type WorkScheduleFields = CreateWorkScheduleDto | UpdateWorkScheduleDto;
 
 @Injectable()
 export class WorkSchedulesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService
+  ) {}
 
+  // WorkSchedule n'a pas de departmentId direct (voir prisma/schema.prisma) — le scope
+  // départemental (Étape 5) passe donc par l'employé planifié (employee.departmentId), en
+  // filtrage relationnel ici et via l'employé déjà chargé ailleurs (create/update).
   async list(requester: AuthenticatedUser) {
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const schedules = await this.prisma.workSchedule.findMany({
-      where: requester.hotelId
-        ? { hotelId: requester.hotelId }
-        : { hotel: { organizationId: requester.organizationId } },
+      where: {
+        ...(requester.hotelId
+          ? { hotelId: requester.hotelId }
+          : { hotel: { organizationId: requester.organizationId } }),
+        ...(departmentIds.length > 0 ? { employee: { departmentId: { in: departmentIds } } } : {}),
+      },
       orderBy: { startAt: "desc" },
     });
     return schedules.map(toWorkScheduleResponse);
@@ -26,6 +37,8 @@ export class WorkSchedulesService {
   async findOne(id: string, requester: AuthenticatedUser) {
     const schedule = await this.findWithHotelOrThrow(id);
     assertInScope(schedule.hotel.organizationId, schedule.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(schedule.employee.departmentId, departmentIds);
     return toWorkScheduleResponse(schedule);
   }
 
@@ -43,7 +56,8 @@ export class WorkSchedulesService {
       throw new BadRequestException("Hôtel invalide");
     }
 
-    await this.validateReferences(hotelId, dto);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    await this.validateReferences(hotelId, dto, departmentIds);
 
     const startAt = new Date(dto.startAt);
     const endAt = new Date(dto.endAt);
@@ -60,8 +74,10 @@ export class WorkSchedulesService {
   async update(id: string, dto: UpdateWorkScheduleDto, requester: AuthenticatedUser) {
     const schedule = await this.findWithHotelOrThrow(id);
     assertInScope(schedule.hotel.organizationId, schedule.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(schedule.employee.departmentId, departmentIds);
 
-    await this.validateReferences(schedule.hotelId, dto);
+    await this.validateReferences(schedule.hotelId, dto, departmentIds);
 
     const startAt = dto.startAt ? new Date(dto.startAt) : schedule.startAt;
     const endAt = dto.endAt ? new Date(dto.endAt) : schedule.endAt;
@@ -81,17 +97,25 @@ export class WorkSchedulesService {
     return toWorkScheduleResponse(updated);
   }
 
-  private async validateReferences(hotelId: string, dto: WorkScheduleFields): Promise<void> {
+  private async validateReferences(
+    hotelId: string,
+    dto: WorkScheduleFields,
+    departmentIds: string[]
+  ): Promise<void> {
     if (dto.employeeId) {
       const employee = await this.prisma.employee.findUnique({ where: { id: dto.employeeId } });
       if (!employee || employee.hotelId !== hotelId) {
         throw new BadRequestException("Employé invalide");
       }
+      assertInDepartmentScope(employee.departmentId, departmentIds);
     }
   }
 
   private async findWithHotelOrThrow(id: string) {
-    const schedule = await this.prisma.workSchedule.findUnique({ where: { id }, include: { hotel: true } });
+    const schedule = await this.prisma.workSchedule.findUnique({
+      where: { id },
+      include: { hotel: true, employee: true },
+    });
     if (!schedule) {
       throw new NotFoundException("Planning introuvable");
     }

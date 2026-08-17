@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { CreateEmployeeDto } from "./dto/create-employee.dto";
 import { toEmployeeResponse } from "./dto/employee-response.dto";
 import { UpdateEmployeeDto } from "./dto/update-employee.dto";
@@ -11,13 +12,20 @@ type EmployeeFields = CreateEmployeeDto | UpdateEmployeeDto;
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService
+  ) {}
 
   async list(requester: AuthenticatedUser) {
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const employees = await this.prisma.employee.findMany({
-      where: requester.hotelId
-        ? { hotelId: requester.hotelId }
-        : { hotel: { organizationId: requester.organizationId } },
+      where: {
+        ...(requester.hotelId
+          ? { hotelId: requester.hotelId }
+          : { hotel: { organizationId: requester.organizationId } }),
+        ...(departmentIds.length > 0 ? { departmentId: { in: departmentIds } } : {}),
+      },
       orderBy: { createdAt: "asc" },
     });
     return employees.map(toEmployeeResponse);
@@ -26,6 +34,8 @@ export class EmployeesService {
   async findOne(id: string, requester: AuthenticatedUser) {
     const employee = await this.findWithHotelOrThrow(id);
     assertInScope(employee.hotel.organizationId, employee.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(employee.departmentId, departmentIds);
     return toEmployeeResponse(employee);
   }
 
@@ -42,6 +52,9 @@ export class EmployeesService {
     if (!hotel || hotel.organizationId !== requester.organizationId) {
       throw new BadRequestException("Hôtel invalide");
     }
+
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(dto.departmentId ?? null, departmentIds);
 
     await this.validateReferences(hotelId, dto);
 
@@ -70,6 +83,11 @@ export class EmployeesService {
   async update(id: string, dto: UpdateEmployeeDto, requester: AuthenticatedUser) {
     const employee = await this.findWithHotelOrThrow(id);
     assertInScope(employee.hotel.organizationId, employee.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(employee.departmentId, departmentIds);
+    if (dto.departmentId !== undefined) {
+      assertInDepartmentScope(dto.departmentId, departmentIds);
+    }
 
     await this.validateReferences(employee.hotelId, dto, employee.id);
 

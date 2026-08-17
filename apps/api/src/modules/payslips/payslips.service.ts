@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { CreatePayslipDto } from "./dto/create-payslip.dto";
 import { MarkPaidPayslipDto } from "./dto/mark-paid-payslip.dto";
 import { computeNetPay, toPayslipResponse } from "./dto/payslip-response.dto";
@@ -10,13 +11,23 @@ import { UpdatePayslipDto } from "./dto/update-payslip.dto";
 
 @Injectable()
 export class PayslipsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService
+  ) {}
 
+  // Payslip n'a pas de departmentId direct — scope départemental (Étape 5) via
+  // employee.departmentId. Particulièrement pertinent ici : la confidentialité salariale est un
+  // motif fort pour qu'un responsable de département ne voie que les bulletins de son équipe.
   async list(requester: AuthenticatedUser) {
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const payslips = await this.prisma.payslip.findMany({
-      where: requester.hotelId
-        ? { hotelId: requester.hotelId }
-        : { hotel: { organizationId: requester.organizationId } },
+      where: {
+        ...(requester.hotelId
+          ? { hotelId: requester.hotelId }
+          : { hotel: { organizationId: requester.organizationId } }),
+        ...(departmentIds.length > 0 ? { employee: { departmentId: { in: departmentIds } } } : {}),
+      },
       orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
     });
     return payslips.map(toPayslipResponse);
@@ -25,6 +36,8 @@ export class PayslipsService {
   async findOne(id: string, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
     assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(payslip.employee.departmentId, departmentIds);
     return toPayslipResponse(payslip);
   }
 
@@ -46,6 +59,8 @@ export class PayslipsService {
     if (!employee || employee.hotelId !== hotelId) {
       throw new BadRequestException("Employé invalide");
     }
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(employee.departmentId, departmentIds);
 
     const existing = await this.prisma.payslip.findUnique({
       where: {
@@ -84,6 +99,8 @@ export class PayslipsService {
   async update(id: string, dto: UpdatePayslipDto, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
     assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(payslip.employee.departmentId, departmentIds);
     if (payslip.status !== "DRAFT") {
       throw new BadRequestException("Seul un bulletin en brouillon peut être modifié");
     }
@@ -95,6 +112,8 @@ export class PayslipsService {
   async finalize(id: string, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
     assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(payslip.employee.departmentId, departmentIds);
     if (payslip.status !== "DRAFT") {
       throw new BadRequestException(
         `Impossible d'effectuer "finalize" depuis le statut ${payslip.status} (attendu : DRAFT)`
@@ -110,6 +129,8 @@ export class PayslipsService {
   async markPaid(id: string, dto: MarkPaidPayslipDto, requester: AuthenticatedUser) {
     const payslip = await this.findWithHotelOrThrow(id);
     assertInScope(payslip.hotel.organizationId, payslip.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(payslip.employee.departmentId, departmentIds);
     if (payslip.status !== "FINALIZED") {
       throw new BadRequestException(
         `Impossible d'effectuer "mark-paid" depuis le statut ${payslip.status} (attendu : FINALIZED)`
@@ -229,7 +250,10 @@ export class PayslipsService {
   }
 
   private async findWithHotelOrThrow(id: string) {
-    const payslip = await this.prisma.payslip.findUnique({ where: { id }, include: { hotel: true } });
+    const payslip = await this.prisma.payslip.findUnique({
+      where: { id },
+      include: { hotel: true, employee: true },
+    });
     if (!payslip) {
       throw new NotFoundException("Bulletin de paie introuvable");
     }

@@ -2,8 +2,9 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import type { LeaveRequest, LeaveStatus } from "@prisma/client";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { CreateLeaveRequestDto } from "./dto/create-leave-request.dto";
 import { toLeaveRequestResponse } from "./dto/leave-request-response.dto";
 import { RejectLeaveRequestDto } from "./dto/reject-leave-request.dto";
@@ -11,13 +12,22 @@ import { UpdateLeaveRequestDto } from "./dto/update-leave-request.dto";
 
 @Injectable()
 export class LeaveRequestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService
+  ) {}
 
+  // LeaveRequest n'a pas de departmentId direct — scope départemental (Étape 5) via
+  // employee.departmentId, même principe que WorkSchedulesService/AttendanceService.
   async list(requester: AuthenticatedUser) {
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const leaveRequests = await this.prisma.leaveRequest.findMany({
-      where: requester.hotelId
-        ? { hotelId: requester.hotelId }
-        : { hotel: { organizationId: requester.organizationId } },
+      where: {
+        ...(requester.hotelId
+          ? { hotelId: requester.hotelId }
+          : { hotel: { organizationId: requester.organizationId } }),
+        ...(departmentIds.length > 0 ? { employee: { departmentId: { in: departmentIds } } } : {}),
+      },
       orderBy: { createdAt: "desc" },
     });
     return leaveRequests.map(toLeaveRequestResponse);
@@ -26,6 +36,8 @@ export class LeaveRequestsService {
   async findOne(id: string, requester: AuthenticatedUser) {
     const leaveRequest = await this.findWithHotelOrThrow(id);
     assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(leaveRequest.employee.departmentId, departmentIds);
     return toLeaveRequestResponse(leaveRequest);
   }
 
@@ -47,6 +59,8 @@ export class LeaveRequestsService {
     if (!employee || employee.hotelId !== hotelId) {
       throw new BadRequestException("Employé invalide");
     }
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(employee.departmentId, departmentIds);
 
     const startDate = new Date(dto.startDate);
     const endDate = new Date(dto.endDate);
@@ -71,6 +85,8 @@ export class LeaveRequestsService {
   async update(id: string, dto: UpdateLeaveRequestDto, requester: AuthenticatedUser) {
     const leaveRequest = await this.findWithHotelOrThrow(id);
     assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(leaveRequest.employee.departmentId, departmentIds);
     if (leaveRequest.status !== "PENDING") {
       throw new BadRequestException("Seule une demande en attente peut être modifiée");
     }
@@ -135,6 +151,8 @@ export class LeaveRequestsService {
   ): Promise<LeaveRequest> {
     const leaveRequest = await this.findWithHotelOrThrow(id);
     assertInScope(leaveRequest.hotel.organizationId, leaveRequest.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(leaveRequest.employee.departmentId, departmentIds);
     if (leaveRequest.status !== expectedStatus) {
       throw new BadRequestException(
         `Impossible d'effectuer "${action}" depuis le statut ${leaveRequest.status} (attendu : ${expectedStatus})`
@@ -144,7 +162,10 @@ export class LeaveRequestsService {
   }
 
   private async findWithHotelOrThrow(id: string) {
-    const leaveRequest = await this.prisma.leaveRequest.findUnique({ where: { id }, include: { hotel: true } });
+    const leaveRequest = await this.prisma.leaveRequest.findUnique({
+      where: { id },
+      include: { hotel: true, employee: true },
+    });
     if (!leaveRequest) {
       throw new NotFoundException("Demande de congé introuvable");
     }

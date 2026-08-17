@@ -1,20 +1,30 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
-import { assertInScope } from "../../common/utils/assert-in-scope";
+import { assertInDepartmentScope, assertInScope } from "../../common/utils/assert-in-scope";
 import { PrismaService } from "../../database/prisma.service";
+import { DepartmentsService } from "../departments/departments.service";
 import { toAttendanceResponse } from "./dto/attendance-response.dto";
 import { CreateAttendanceDto } from "./dto/create-attendance.dto";
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService
+  ) {}
 
+  // Attendance n'a pas de departmentId direct — scope départemental (Étape 5) via
+  // employee.departmentId, même principe que WorkSchedulesService.
   async list(requester: AuthenticatedUser) {
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const attendances = await this.prisma.attendance.findMany({
-      where: requester.hotelId
-        ? { hotelId: requester.hotelId }
-        : { hotel: { organizationId: requester.organizationId } },
+      where: {
+        ...(requester.hotelId
+          ? { hotelId: requester.hotelId }
+          : { hotel: { organizationId: requester.organizationId } }),
+        ...(departmentIds.length > 0 ? { employee: { departmentId: { in: departmentIds } } } : {}),
+      },
       orderBy: { clockIn: "desc" },
     });
     return attendances.map(toAttendanceResponse);
@@ -23,6 +33,8 @@ export class AttendanceService {
   async findOne(id: string, requester: AuthenticatedUser) {
     const attendance = await this.findWithHotelOrThrow(id);
     assertInScope(attendance.hotel.organizationId, attendance.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(attendance.employee.departmentId, departmentIds);
     return toAttendanceResponse(attendance);
   }
 
@@ -44,6 +56,8 @@ export class AttendanceService {
     if (!employee || employee.hotelId !== hotelId) {
       throw new BadRequestException("Employé invalide");
     }
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(employee.departmentId, departmentIds);
 
     const open = await this.prisma.attendance.findFirst({
       where: { employeeId: dto.employeeId, clockOut: null },
@@ -66,6 +80,8 @@ export class AttendanceService {
   async clockOut(id: string, requester: AuthenticatedUser) {
     const attendance = await this.findWithHotelOrThrow(id);
     assertInScope(attendance.hotel.organizationId, attendance.hotelId, requester);
+    const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
+    assertInDepartmentScope(attendance.employee.departmentId, departmentIds);
     if (attendance.clockOut) {
       throw new BadRequestException("Ce pointage est déjà fermé");
     }
@@ -77,7 +93,10 @@ export class AttendanceService {
   }
 
   private async findWithHotelOrThrow(id: string) {
-    const attendance = await this.prisma.attendance.findUnique({ where: { id }, include: { hotel: true } });
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id },
+      include: { hotel: true, employee: true },
+    });
     if (!attendance) {
       throw new NotFoundException("Pointage introuvable");
     }
