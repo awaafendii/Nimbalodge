@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Source unique des icônes PWA. Fond plein-bord (#102019, jeton sidebar-bg) requis pour les
+       icônes "maskable" (l'OS peut recadrer en cercle/squircle) et pour apple-touch-icon (iOS
+       ignore la transparence). Glyphe : tracé exact d'IconMark (packages/ui/src/icons/index.tsx),
+       remis à l'échelle et centré dans la zone sûre des icônes maskable (~60% du canevas). Voir
+       apps/web/scripts/generate-pwa-icons.mjs pour la rastérisation en PNG. -->
+  <rect width="512" height="512" fill="#102019" />
+  <g transform="translate(106,106) scale(12.5)">
+    <path
+      d="M2.5 19.5 8.5 8l3.6 5.7L15.5 9l6 10.5"
+      stroke="#eafff5"
+      stroke-width="1.6"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+      fill="none"
+    />
+  </g>
+</svg>

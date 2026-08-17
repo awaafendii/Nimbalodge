@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#102019" />
+    <title>NimbaLodge — Hors connexion</title>
+    <style>
+      /* Page statique sans JS ni dépendance au shell applicatif — filet de secours défensif
+         (cache corrompu, toute première visite hors ligne avant que le shell ne soit précaché).
+         Ce n'est PAS l'expérience "hors ligne" principale : un utilisateur qui a déjà visité
+         l'app une fois verra le shell précaché se charger normalement et navigateFallback ne
+         sert jamais cette page dans ce cas (voir vite.config.ts). */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #102019;
+        color: #eafff5;
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      .wrap {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 24px;
+        text-align: center;
+      }
+      svg {
+        width: 48px;
+        height: 48px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0;
+      }
+      p {
+        margin: 0;
+        max-width: 320px;
+        color: #9cb8ad;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      button {
+        margin-top: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: none;
+        background: #eafff5;
+        color: #102019;
+        font-weight: 600;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path
+          d="M2.5 19.5 8.5 8l3.6 5.7L15.5 9l6 10.5"
+          stroke="#eafff5"
+          stroke-width="1.6"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        />
+      </svg>
+      <h1>Hors connexion</h1>
+      <p>NimbaLodge n'a pas pu se charger — vérifiez votre connexion réseau puis réessayez.</p>
+      <button onclick="location.reload()">Réessayer</button>
+    </div>
+  </body>
+</html>
