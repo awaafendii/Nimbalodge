@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from "@nimbalodge/ui";
 
+import { useOnlineStatus } from "../../hooks/use-online-status.js";
 import { ApiError } from "../../services/api-client.js";
 
 // Enveloppe unique pour les 4 états qu'un écran piloté par l'API doit gérer explicitement (voir
@@ -35,6 +36,8 @@ export function QueryState<T>({
   renderLoading,
   children,
 }: QueryStateProps<T>) {
+  const isOnline = useOnlineStatus();
+
   if (isLoading) {
     if (renderLoading) {
       return <>{renderLoading()}</>;
@@ -50,18 +53,25 @@ export function QueryState<T>({
 
   if (error) {
     const isForbidden = error instanceof ApiError && error.status === 403;
+    // Hors ligne : erreur réseau, pas une erreur serveur — message distinct, jamais affiché si la
+    // réponse était un 403 explicite (ça, c'est une décision du serveur, pas un problème réseau).
+    const isOffline = !isOnline && !isForbidden;
     return (
       <Card className="border-dashed">
         <CardHeader>
-          <CardTitle className="text-base">{isForbidden ? "Accès non autorisé" : "Erreur de chargement"}</CardTitle>
+          <CardTitle className="text-base">
+            {isForbidden ? "Accès non autorisé" : isOffline ? "Hors connexion" : "Erreur de chargement"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
             {isForbidden
               ? "Vous n'avez pas la permission de consulter ces données."
-              : error instanceof Error
-                ? error.message
-                : "Une erreur inattendue s'est produite."}
+              : isOffline
+                ? "Impossible de charger ces données sans connexion réseau."
+                : error instanceof Error
+                  ? error.message
+                  : "Une erreur inattendue s'est produite."}
           </p>
           {!isForbidden && onRetry ? (
             <Button variant="outline" size="sm" onClick={onRetry} className="self-start">
