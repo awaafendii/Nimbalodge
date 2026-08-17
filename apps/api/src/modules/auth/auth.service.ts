@@ -70,7 +70,21 @@ export class AuthService {
     }
 
     const stored = await this.prisma.refreshToken.findUnique({ where: { id: payload.jti } });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date() || stored.tokenHash !== hashToken(rawToken)) {
+    if (!stored || stored.expiresAt < new Date() || stored.tokenHash !== hashToken(rawToken)) {
+      throw new UnauthorizedException("Refresh token invalide ou révoqué");
+    }
+
+    if (stored.revokedAt) {
+      // Réutilisation d'un refresh token déjà tourné (§ pattern OAuth2 "refresh token reuse
+      // detection") : dans une chaîne de rotation normale, seul le tout dernier token émis est
+      // valide — en voir un ancien resurgir signale un vol probable (copie interceptée, rejouée
+      // en parallèle du légitime). Révoque immédiatement TOUTES les sessions actives de
+      // l'utilisateur plutôt que de se contenter de rejeter ce seul token, pour ne pas laisser un
+      // jeton volé actif ailleurs pendant que la victime continue sa rotation normale.
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: stored.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       throw new UnauthorizedException("Refresh token invalide ou révoqué");
     }
 
