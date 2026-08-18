@@ -13,55 +13,55 @@ export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   @Get()
-  @RequirePermissions("finance.expense.view")
+  @RequirePermissions("finance-expenses.view")
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.list(user);
   }
 
   @Get(":id")
-  @RequirePermissions("finance.expense.view")
+  @RequirePermissions("finance-expenses.view")
   findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.findOne(id, user);
   }
 
   @Post()
-  @RequirePermissions("finance.expense.create")
+  @RequirePermissions("finance-expenses.create")
   create(@Body() dto: CreateExpenseDto, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.create(dto, user);
   }
 
   @Patch(":id")
-  @RequirePermissions("finance.expense.update")
+  @RequirePermissions("finance-expenses.update")
   update(@Param("id") id: string, @Body() dto: UpdateExpenseDto, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.update(id, dto, user);
   }
 
   @Post(":id/submit")
-  @RequirePermissions("finance.expense.submit")
+  @RequirePermissions("finance-expenses.submit")
   submit(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.submit(id, user);
   }
 
   @Post(":id/approve")
-  @RequirePermissions("finance.expense.approve")
+  @RequirePermissions("finance-expenses.approve")
   approve(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.approve(id, user);
   }
 
   @Post(":id/reject")
-  @RequirePermissions("finance.expense.approve")
+  @RequirePermissions("finance-expenses.approve")
   reject(@Param("id") id: string, @Body() dto: RejectExpenseDto, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.reject(id, dto, user);
   }
 
   @Post(":id/mark-paid")
-  @RequirePermissions("finance.expense.pay")
+  @RequirePermissions("finance-expenses.pay")
   markPaid(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.markPaid(id, user);
   }
 
   @Post(":id/book")
-  @RequirePermissions("finance.expense.book")
+  @RequirePermissions("finance-expenses.book")
   book(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.expensesService.book(id, user);
   }

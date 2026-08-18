@@ -216,7 +216,7 @@ export class BudgetsService {
       notificationsCreated += await this.notificationsService.notifyUsersWithPermission({
         hotelId: budget.hotelId,
         organizationId: budget.hotel.organizationId,
-        permissionKey: "finance.budget.view",
+        permissionKey: "finance-budgets.view",
         type: "budget_overspend",
         title: `Budget "${budget.name}" dépassé`,
         message: `Une ligne de "${budget.name}" dépasse le montant prévu : réalisé ${line.actual.toString()} pour un prévu de ${line.planned.toString()}.`,

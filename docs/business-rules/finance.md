@@ -52,16 +52,16 @@ par transition) :
 
 | Endpoint | Transition | Permission |
 |---|---|---|
-| `POST /expenses` | — → DRAFT | `finance.expense.create` |
-| `PATCH /expenses/:id` | DRAFT seulement | `finance.expense.update` |
-| `POST /expenses/:id/submit` | DRAFT → PENDING | `finance.expense.submit` |
-| `POST /expenses/:id/approve` | PENDING → APPROVED | `finance.expense.approve` |
-| `POST /expenses/:id/reject` | PENDING → REJECTED | `finance.expense.approve` |
-| `POST /expenses/:id/mark-paid` | APPROVED → PAID | `finance.expense.pay` |
-| `POST /expenses/:id/book` | PAID → BOOKED | `finance.expense.book` |
+| `POST /expenses` | — → DRAFT | `finance-expenses.create` |
+| `PATCH /expenses/:id` | DRAFT seulement | `finance-expenses.update` |
+| `POST /expenses/:id/submit` | DRAFT → PENDING | `finance-expenses.submit` |
+| `POST /expenses/:id/approve` | PENDING → APPROVED | `finance-expenses.approve` |
+| `POST /expenses/:id/reject` | PENDING → REJECTED | `finance-expenses.approve` |
+| `POST /expenses/:id/mark-paid` | APPROVED → PAID | `finance-expenses.pay` |
+| `POST /expenses/:id/book` | PAID → BOOKED | `finance-expenses.book` |
 
 `mark-paid` exige qu'exactement un compte (caisse **ou** banque, jamais les deux) soit déjà
-renseigné sur la dépense. `finance.expense.book` est réservé à `SUPER_ADMIN` (contrôle financier
+renseigné sur la dépense. `finance-expenses.book` est réservé à `SUPER_ADMIN` (contrôle financier
 niveau organisation) — `HOTEL_ADMIN` a toutes les autres permissions finance.
 
 ## 4. Workflow `Invoice`
@@ -143,10 +143,11 @@ param ou un body pour déterminer le périmètre, toujours dérivé du `requeste
 
 ## 11. Permissions
 
-Format `finance.<ressource>.<action>` (divergent du format plat `departments.create` de Phase 3-4,
-assumé — Finance a un exemple explicite du brief dans ce format). `SUPER_ADMIN` : toutes les
-permissions finance. `HOTEL_ADMIN` : toutes sauf `finance.expense.book` (comptabilisation =
-contrôle financier niveau organisation).
+Format plat `finance-<ressource>.<action>` (ex. `finance-expenses.create`), uniformisé avec le
+reste du catalogue depuis Étape 7 (durcissement RBAC) — utilisait à l'origine `finance.<ressource>.
+<action>`, seul domaine imbriqué du catalogue ; voir `prisma/permissions-catalog.ts`. `SUPER_ADMIN` :
+toutes les permissions finance. `HOTEL_ADMIN` : toutes sauf `finance-expenses.book`
+(comptabilisation = contrôle financier niveau organisation).
 
 ## 12. Hors périmètre (documenté, ne pas réinventer silencieusement)
 

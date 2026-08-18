@@ -11,7 +11,7 @@ export class FinanceSummaryController {
   constructor(private readonly financeSummaryService: FinanceSummaryService) {}
 
   @Get()
-  @RequirePermissions("finance.summary.view")
+  @RequirePermissions("finance-summary.view")
   getSummary(@Query() query: FinanceSummaryQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.financeSummaryService.getSummary(query, user);
   }

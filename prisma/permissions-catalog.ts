@@ -20,40 +20,44 @@ export const BASE_PERMISSIONS = [
   { key: "cost-centers.view", description: "Voir les centres de coûts" },
   { key: "cost-centers.create", description: "Créer un centre de coûts" },
   { key: "cost-centers.update", description: "Modifier un centre de coûts" },
-  // Phase 5 — format "finance.<ressource>.<action>" (exemple explicite du brief §30), distinct du
-  // format plat utilisé ci-dessus (Phase 3-4 n'avait pas d'exemple contraire).
-  { key: "finance.category.view", description: "Voir les catégories financières" },
-  { key: "finance.category.create", description: "Créer une catégorie financière" },
-  { key: "finance.category.update", description: "Modifier une catégorie financière" },
-  { key: "finance.cash-account.view", description: "Voir les caisses" },
-  { key: "finance.cash-account.create", description: "Créer une caisse" },
-  { key: "finance.cash-account.update", description: "Modifier une caisse / saisir une opération" },
-  { key: "finance.bank-account.view", description: "Voir les comptes bancaires" },
-  { key: "finance.bank-account.create", description: "Créer un compte bancaire" },
-  { key: "finance.bank-account.update", description: "Modifier un compte bancaire / saisir une opération" },
-  { key: "finance.revenue.view", description: "Voir les recettes" },
-  { key: "finance.revenue.create", description: "Créer une recette" },
-  { key: "finance.expense.view", description: "Voir les dépenses" },
-  { key: "finance.expense.create", description: "Créer une dépense" },
-  { key: "finance.expense.update", description: "Modifier une dépense en brouillon" },
-  { key: "finance.expense.submit", description: "Soumettre une dépense" },
-  { key: "finance.expense.approve", description: "Approuver ou rejeter une dépense" },
-  { key: "finance.expense.pay", description: "Marquer une dépense comme payée" },
-  { key: "finance.expense.book", description: "Comptabiliser une dépense" },
-  { key: "finance.budget.view", description: "Voir les budgets" },
-  { key: "finance.budget.create", description: "Créer un budget" },
-  { key: "finance.budget.update", description: "Modifier un budget / ajouter une ligne" },
-  { key: "finance.summary.view", description: "Voir le résumé financier" },
+  // Phase 5 — format plat "resource.action", uniformisé avec le reste du catalogue (Étape 7,
+  // durcissement RBAC). Utilisait à l'origine "finance.<ressource>.<action>" (brief §30) ; aplati
+  // en "finance-<ressource>.<action>" pour ne plus être le seul domaine imbriqué — voir la
+  // migration prisma/migrations/*_flatten_finance_permission_keys pour le remappage des clés
+  // existantes (Permission.key réécrit en place, RolePermission référence permissionId donc aucune
+  // attribution existante n'est perdue).
+  { key: "finance-categories.view", description: "Voir les catégories financières" },
+  { key: "finance-categories.create", description: "Créer une catégorie financière" },
+  { key: "finance-categories.update", description: "Modifier une catégorie financière" },
+  { key: "finance-cash-accounts.view", description: "Voir les caisses" },
+  { key: "finance-cash-accounts.create", description: "Créer une caisse" },
+  { key: "finance-cash-accounts.update", description: "Modifier une caisse / saisir une opération" },
+  { key: "finance-bank-accounts.view", description: "Voir les comptes bancaires" },
+  { key: "finance-bank-accounts.create", description: "Créer un compte bancaire" },
+  { key: "finance-bank-accounts.update", description: "Modifier un compte bancaire / saisir une opération" },
+  { key: "finance-revenues.view", description: "Voir les recettes" },
+  { key: "finance-revenues.create", description: "Créer une recette" },
+  { key: "finance-expenses.view", description: "Voir les dépenses" },
+  { key: "finance-expenses.create", description: "Créer une dépense" },
+  { key: "finance-expenses.update", description: "Modifier une dépense en brouillon" },
+  { key: "finance-expenses.submit", description: "Soumettre une dépense" },
+  { key: "finance-expenses.approve", description: "Approuver ou rejeter une dépense" },
+  { key: "finance-expenses.pay", description: "Marquer une dépense comme payée" },
+  { key: "finance-expenses.book", description: "Comptabiliser une dépense" },
+  { key: "finance-budgets.view", description: "Voir les budgets" },
+  { key: "finance-budgets.create", description: "Créer un budget" },
+  { key: "finance-budgets.update", description: "Modifier un budget / ajouter une ligne" },
+  { key: "finance-summary.view", description: "Voir le résumé financier" },
   // Phase 6
-  { key: "finance.invoice.view", description: "Voir les factures" },
-  { key: "finance.invoice.create", description: "Créer une facture" },
-  { key: "finance.invoice.update", description: "Modifier une facture en brouillon" },
-  { key: "finance.invoice.issue", description: "Émettre une facture" },
-  { key: "finance.invoice.cancel", description: "Annuler une facture" },
-  { key: "finance.payment.view", description: "Voir les paiements" },
-  { key: "finance.payment.create", description: "Enregistrer un paiement" },
-  { key: "finance.credit-note.view", description: "Voir les avoirs" },
-  { key: "finance.credit-note.create", description: "Émettre un avoir" },
+  { key: "finance-invoices.view", description: "Voir les factures" },
+  { key: "finance-invoices.create", description: "Créer une facture" },
+  { key: "finance-invoices.update", description: "Modifier une facture en brouillon" },
+  { key: "finance-invoices.issue", description: "Émettre une facture" },
+  { key: "finance-invoices.cancel", description: "Annuler une facture" },
+  { key: "finance-payments.view", description: "Voir les paiements" },
+  { key: "finance-payments.create", description: "Enregistrer un paiement" },
+  { key: "finance-credit-notes.view", description: "Voir les avoirs" },
+  { key: "finance-credit-notes.create", description: "Émettre un avoir" },
   // Phase 7 — format plat "resource.action", cohérent Phase 3-4 (domaine non-finance).
   { key: "room-types.view", description: "Voir les types de chambres" },
   { key: "room-types.create", description: "Créer un type de chambre" },
@@ -94,7 +98,7 @@ export const BASE_PERMISSIONS = [
   { key: "payslips.finalize", description: "Finaliser un bulletin de paie" },
   { key: "payslips.mark-paid", description: "Marquer un bulletin de paie comme payé" },
   // Phase 9 — format plat "resource.action", cohérent Phase 7-8. "Facture fournisseur"/"paiement"
-  // n'ont pas de clés dédiées : ils réutilisent finance.expense.* (Expense.supplierId/
+  // n'ont pas de clés dédiées : ils réutilisent finance-expenses.* (Expense.supplierId/
   // purchaseOrderId, additifs).
   { key: "suppliers.view", description: "Voir les fournisseurs" },
   { key: "suppliers.create", description: "Créer un fournisseur" },
@@ -132,15 +136,13 @@ export const BASE_PERMISSIONS = [
   { key: "maintenance-interventions.start", description: "Démarrer une intervention de maintenance" },
   { key: "maintenance-interventions.complete", description: "Terminer une intervention de maintenance" },
   { key: "maintenance-interventions.cancel", description: "Annuler une intervention de maintenance" },
-  // Phase 11 — moteur de rapports (§54). Une seule clé cette phase (un seul rapport, "financial") ;
-  // format `resource.action` imbriqué façon finance.*, le rapport reste finance-adjacent.
+  // Phase 11 — moteur de rapports (§54). Une seule clé cette phase (un seul rapport, "financial").
   { key: "reports.financial.view", description: "Voir/exporter le rapport financier" },
-  // Phase 12 — notifications (§35) + audit trail (§37). `finance.budget.check-overspend` en format
-  // imbriqué (cohérent finance.*, Phase 5) ; le reste en format plat (cohérent Phase 7-10).
+  // Phase 12 — notifications (§35) + audit trail (§37).
   { key: "notifications.view", description: "Voir ses notifications" },
   { key: "notifications.mark-read", description: "Marquer ses notifications comme lues" },
   { key: "audit-logs.view", description: "Voir le journal d'audit" },
-  { key: "finance.budget.check-overspend", description: "Vérifier les dépassements budgétaires et générer des alertes" },
+  { key: "finance-budgets.check-overspend", description: "Vérifier les dépassements budgétaires et générer des alertes" },
   // Phase 13 — format plat "resource.action", cohérent Phase 7-10.
   { key: "warehouses.view", description: "Voir les entrepôts" },
   { key: "warehouses.create", description: "Créer un entrepôt" },

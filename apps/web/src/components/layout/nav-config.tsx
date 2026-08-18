@@ -24,7 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { to: "/dashboard", label: "Tableau de bord", subtitle: "Vue d'ensemble", icon: Icons.IconDashboard },
-      { to: "/finance", label: "Finance", subtitle: "Budgets, recettes, dépenses, caisse, banque", icon: Icons.IconWallet, permission: "finance.summary.view" },
+      { to: "/finance", label: "Finance", subtitle: "Budgets, recettes, dépenses, caisse, banque", icon: Icons.IconWallet, permission: "finance-summary.view" },
       { to: "/reservations", label: "Réservations", subtitle: "Demandes, séjours, check-in / check-out", icon: Icons.IconInvoice, permission: "reservations.view" },
       { to: "/rooms", label: "Chambres", subtitle: "Types de chambres, tarifs, statuts", icon: Icons.IconBed, permission: "rooms.view" },
       { to: "/guests", label: "Clients", subtitle: "Identité, historique, préférences", icon: Icons.IconUsers, permission: "guests.view" },

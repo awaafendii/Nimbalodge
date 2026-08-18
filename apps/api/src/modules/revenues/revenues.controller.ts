@@ -11,19 +11,19 @@ export class RevenuesController {
   constructor(private readonly revenuesService: RevenuesService) {}
 
   @Get()
-  @RequirePermissions("finance.revenue.view")
+  @RequirePermissions("finance-revenues.view")
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.revenuesService.list(user);
   }
 
   @Get(":id")
-  @RequirePermissions("finance.revenue.view")
+  @RequirePermissions("finance-revenues.view")
   findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.revenuesService.findOne(id, user);
   }
 
   @Post()
-  @RequirePermissions("finance.revenue.create")
+  @RequirePermissions("finance-revenues.create")
   create(@Body() dto: CreateRevenueDto, @CurrentUser() user: AuthenticatedUser) {
     return this.revenuesService.create(dto, user);
   }

@@ -20,68 +20,68 @@ export class InvoicesController {
   ) {}
 
   @Get()
-  @RequirePermissions("finance.invoice.view")
+  @RequirePermissions("finance-invoices.view")
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.list(user);
   }
 
   // Route statique déclarée AVANT /:id — sinon Nest matcherait "receivables" comme un id.
   @Get("receivables")
-  @RequirePermissions("finance.invoice.view")
+  @RequirePermissions("finance-invoices.view")
   receivables(@CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.receivables(user);
   }
 
   @Get(":id")
-  @RequirePermissions("finance.invoice.view")
+  @RequirePermissions("finance-invoices.view")
   findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.findOne(id, user);
   }
 
   @Post()
-  @RequirePermissions("finance.invoice.create")
+  @RequirePermissions("finance-invoices.create")
   create(@Body() dto: CreateInvoiceDto, @CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.create(dto, user);
   }
 
   @Patch(":id")
-  @RequirePermissions("finance.invoice.update")
+  @RequirePermissions("finance-invoices.update")
   update(@Param("id") id: string, @Body() dto: UpdateInvoiceDto, @CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.update(id, dto, user);
   }
 
   @Post(":id/issue")
-  @RequirePermissions("finance.invoice.issue")
+  @RequirePermissions("finance-invoices.issue")
   issue(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.issue(id, user);
   }
 
   @Post(":id/cancel")
-  @RequirePermissions("finance.invoice.cancel")
+  @RequirePermissions("finance-invoices.cancel")
   cancel(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.invoicesService.cancel(id, user);
   }
 
   @Get(":id/payments")
-  @RequirePermissions("finance.payment.view")
+  @RequirePermissions("finance-payments.view")
   listPayments(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.paymentsService.list(id, user);
   }
 
   @Post(":id/payments")
-  @RequirePermissions("finance.payment.create")
+  @RequirePermissions("finance-payments.create")
   createPayment(@Param("id") id: string, @Body() dto: CreatePaymentDto, @CurrentUser() user: AuthenticatedUser) {
     return this.paymentsService.create(id, dto, user);
   }
 
   @Get(":id/credit-notes")
-  @RequirePermissions("finance.credit-note.view")
+  @RequirePermissions("finance-credit-notes.view")
   listCreditNotes(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.creditNotesService.list(id, user);
   }
 
   @Post(":id/credit-notes")
-  @RequirePermissions("finance.credit-note.create")
+  @RequirePermissions("finance-credit-notes.create")
   createCreditNote(
     @Param("id") id: string,
     @Body() dto: CreateCreditNoteDto,

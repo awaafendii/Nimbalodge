@@ -292,7 +292,7 @@ model Role {
   @@unique([organizationId, name])
 }
 
-/// Clé au format `domaine.ressource.action` (ex. "finance.expense.create", "users.view") — §30.
+/// Clé au format `resource.action` (ex. "finance-expenses.create", "users.view") — §30.
 model Permission {
   id          String   @id @default(cuid())
   key         String   @unique

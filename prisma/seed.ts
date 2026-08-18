@@ -88,42 +88,42 @@ async function main() {
     "cost-centers.view",
     "cost-centers.create",
     "cost-centers.update",
-    // Finance — tout sauf finance.expense.book : comptabiliser relève d'un contrôle financier
+    // Finance — tout sauf finance-expenses.book : comptabiliser relève d'un contrôle financier
     // org-level, même logique que l'exclusion hotels.create/update ci-dessus. Sert aussi de cas
     // de test 403 sans inventer un 3e rôle démo.
-    "finance.category.view",
-    "finance.category.create",
-    "finance.category.update",
-    "finance.cash-account.view",
-    "finance.cash-account.create",
-    "finance.cash-account.update",
-    "finance.bank-account.view",
-    "finance.bank-account.create",
-    "finance.bank-account.update",
-    "finance.revenue.view",
-    "finance.revenue.create",
-    "finance.expense.view",
-    "finance.expense.create",
-    "finance.expense.update",
-    "finance.expense.submit",
-    "finance.expense.approve",
-    "finance.expense.pay",
-    "finance.budget.view",
-    "finance.budget.create",
-    "finance.budget.update",
-    "finance.summary.view",
+    "finance-categories.view",
+    "finance-categories.create",
+    "finance-categories.update",
+    "finance-cash-accounts.view",
+    "finance-cash-accounts.create",
+    "finance-cash-accounts.update",
+    "finance-bank-accounts.view",
+    "finance-bank-accounts.create",
+    "finance-bank-accounts.update",
+    "finance-revenues.view",
+    "finance-revenues.create",
+    "finance-expenses.view",
+    "finance-expenses.create",
+    "finance-expenses.update",
+    "finance-expenses.submit",
+    "finance-expenses.approve",
+    "finance-expenses.pay",
+    "finance-budgets.view",
+    "finance-budgets.create",
+    "finance-budgets.update",
+    "finance-summary.view",
     // Phase 6 — HOTEL_ADMIN reçoit toutes les permissions de facturation : contrairement à
-    // finance.expense.book, rien ici n'a d'équivalent de contrôle org-level, facturer est une
+    // finance-expenses.book, rien ici n'a d'équivalent de contrôle org-level, facturer est une
     // activité hôtelière quotidienne.
-    "finance.invoice.view",
-    "finance.invoice.create",
-    "finance.invoice.update",
-    "finance.invoice.issue",
-    "finance.invoice.cancel",
-    "finance.payment.view",
-    "finance.payment.create",
-    "finance.credit-note.view",
-    "finance.credit-note.create",
+    "finance-invoices.view",
+    "finance-invoices.create",
+    "finance-invoices.update",
+    "finance-invoices.issue",
+    "finance-invoices.cancel",
+    "finance-payments.view",
+    "finance-payments.create",
+    "finance-credit-notes.view",
+    "finance-credit-notes.create",
     // Phase 7 — HOTEL_ADMIN reçoit toutes les permissions réservations/chambres/clients : gestion
     // quotidienne hôtelière, aucun équivalent de contrôle org-level identifié (même raisonnement
     // que la facturation Phase 6).
@@ -146,7 +146,7 @@ async function main() {
     "reservations.no-show",
     // Phase 8 — HOTEL_ADMIN reçoit tout, y compris payslips.mark-paid : gestion quotidienne
     // hôtelière, même raisonnement que la facturation Phase 6/7 (aucun équivalent de contrôle
-    // org-level identifié, contrairement à finance.expense.book).
+    // org-level identifié, contrairement à finance-expenses.book).
     "employees.view",
     "employees.create",
     "employees.update",
@@ -169,7 +169,7 @@ async function main() {
     "payslips.mark-paid",
     // Phase 9 — HOTEL_ADMIN reçoit tout, même raisonnement que la facturation/RH (Phase 6-8) :
     // aucun équivalent de contrôle org-level identifié pour les achats, contrairement à
-    // finance.expense.book.
+    // finance-expenses.book.
     "suppliers.view",
     "suppliers.create",
     "suppliers.update",
@@ -207,16 +207,16 @@ async function main() {
     "maintenance-interventions.start",
     "maintenance-interventions.complete",
     "maintenance-interventions.cancel",
-    // Phase 11 — HOTEL_ADMIN reçoit le rapport financier, même raisonnement que finance.summary.view
+    // Phase 11 — HOTEL_ADMIN reçoit le rapport financier, même raisonnement que finance-summary.view
     // (Phase 5) : lecture, aucun contrôle org-level à exclure.
     "reports.financial.view",
     // Phase 12 — HOTEL_ADMIN reçoit tout : notifications/audit sont scopés par utilisateur/hôtel
     // (pas de contrôle org-level à exclure), et check-overspend est une simple lecture déclenchant
-    // des notifications, pas un mouvement d'argent (contrairement à finance.expense.book).
+    // des notifications, pas un mouvement d'argent (contrairement à finance-expenses.book).
     "notifications.view",
     "notifications.mark-read",
     "audit-logs.view",
-    "finance.budget.check-overspend",
+    "finance-budgets.check-overspend",
     // Phase 13 — HOTEL_ADMIN reçoit tout, même raisonnement que Phase 7-10 : aucun contrôle
     // org-level identifié pour l'inventaire.
     "warehouses.view",

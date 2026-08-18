@@ -12,25 +12,25 @@ export class FinancialCategoriesController {
   constructor(private readonly financialCategoriesService: FinancialCategoriesService) {}
 
   @Get()
-  @RequirePermissions("finance.category.view")
+  @RequirePermissions("finance-categories.view")
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.financialCategoriesService.list(user);
   }
 
   @Get(":id")
-  @RequirePermissions("finance.category.view")
+  @RequirePermissions("finance-categories.view")
   findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.financialCategoriesService.findOne(id, user);
   }
 
   @Post()
-  @RequirePermissions("finance.category.create")
+  @RequirePermissions("finance-categories.create")
   create(@Body() dto: CreateFinancialCategoryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.financialCategoriesService.create(dto, user);
   }
 
   @Patch(":id")
-  @RequirePermissions("finance.category.update")
+  @RequirePermissions("finance-categories.update")
   update(@Param("id") id: string, @Body() dto: UpdateFinancialCategoryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.financialCategoriesService.update(id, dto, user);
   }
