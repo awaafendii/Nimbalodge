@@ -39,6 +39,7 @@ import {
 } from "../../hooks/use-budgets.js";
 import { useDepartments } from "../../hooks/use-departments.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import {
   useApproveExpense,
   useCashAccounts,
@@ -129,22 +130,25 @@ export default function FinancePage() {
 function RevenuesCard() {
   const revenues = useRevenues();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("finance-revenues.create");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Recettes</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter une recette
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateRevenueForm onDone={() => setDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter une recette
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateRevenueForm onDone={() => setDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -156,10 +160,12 @@ function RevenuesCard() {
           emptyTitle="Aucune recette enregistrée"
           emptyDescription="Les recettes apparaîtront ici au fur et à mesure de leur saisie."
           emptyAction={
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter une recette
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter une recette
+              </Button>
+            ) : undefined
           }
         >
           {(data) => (
@@ -319,23 +325,29 @@ function ExpensesCard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const submitExpense = useSubmitExpense();
   const approveExpense = useApproveExpense();
+  const canCreate = usePermission("finance-expenses.create");
+  const canSubmit = usePermission("finance-expenses.submit");
+  const canApprove = usePermission("finance-expenses.approve");
+  const canPay = usePermission("finance-expenses.pay");
   const markPaid = useMarkExpensePaid();
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Dépenses</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter une dépense
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateExpenseForm onDone={() => setDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter une dépense
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateExpenseForm onDone={() => setDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -347,10 +359,12 @@ function ExpensesCard() {
           emptyTitle="Aucune dépense enregistrée"
           emptyDescription="Les dépenses apparaîtront ici au fur et à mesure de leur saisie."
           emptyAction={
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter une dépense
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter une dépense
+              </Button>
+            ) : undefined
           }
         >
           {(data) => (
@@ -362,17 +376,17 @@ function ExpensesCard() {
                   <span className="flex-1 text-right font-[var(--fw-subtitle-strong)]">
                     {fmtGNF(Number(expense.amount))}
                   </span>
-                  {expense.status === "DRAFT" ? (
+                  {expense.status === "DRAFT" && canSubmit ? (
                     <Button size="sm" variant="outline" onClick={() => submitExpense.mutate(expense.id)}>
                       Soumettre
                     </Button>
                   ) : null}
-                  {expense.status === "PENDING" ? (
+                  {expense.status === "PENDING" && canApprove ? (
                     <Button size="sm" variant="outline" onClick={() => approveExpense.mutate(expense.id)}>
                       Approuver
                     </Button>
                   ) : null}
-                  {expense.status === "APPROVED" ? (
+                  {expense.status === "APPROVED" && canPay ? (
                     <Button size="sm" variant="outline" onClick={() => markPaid.mutate(expense.id)}>
                       Marquer payée
                     </Button>
@@ -534,25 +548,29 @@ function CashAccountsCard() {
   const hotels = useHotels();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [transactionsTarget, setTransactionsTarget] = useState<CashAccount | null>(null);
+  const canCreate = usePermission("finance-cash-accounts.create");
+  const canUpdate = usePermission("finance-cash-accounts.update");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Caisse</CardTitle>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter une caisse
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateCashAccountForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter une caisse
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateCashAccountForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -564,10 +582,12 @@ function CashAccountsCard() {
           emptyTitle="Aucune caisse configurée"
           emptyDescription="Créez votre première caisse pour commencer à encaisser des recettes."
           emptyAction={
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter une caisse
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter une caisse
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -600,16 +620,18 @@ function CashAccountsCard() {
                     <Button variant="outline" size="sm" onClick={() => setTransactionsTarget(account)}>
                       Transactions
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={updateCashAccount.isPending}
-                      onClick={() =>
-                        updateCashAccount.mutate({ id: account.id, input: { isActive: !account.isActive } })
-                      }
-                    >
-                      {account.isActive ? "Désactiver" : "Réactiver"}
-                    </Button>
+                    {canUpdate ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={updateCashAccount.isPending}
+                        onClick={() =>
+                          updateCashAccount.mutate({ id: account.id, input: { isActive: !account.isActive } })
+                        }
+                      >
+                        {account.isActive ? "Désactiver" : "Réactiver"}
+                      </Button>
+                    ) : null}
                   </div>
                 ),
               },
@@ -735,6 +757,7 @@ function CreateCashAccountForm({
 function CashTransactionsView({ account }: { account: CashAccount }) {
   const transactions = useCashTransactions(account.id);
   const createTransaction = useCreateCashTransaction();
+  const canUpdate = usePermission("finance-cash-accounts.update");
   const [direction, setDirection] = useState<TransactionDirection>("IN");
   const [amount, setAmount] = useState("");
   const [label, setLabel] = useState("");
@@ -759,43 +782,45 @@ function CashTransactionsView({ account }: { account: CashAccount }) {
         Solde actuel : <span className="font-[var(--fw-subtitle-strong)] text-foreground">{fmtGNF(Number(account.balance))}</span>
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cash-tx-direction">Sens</Label>
-          <select
-            id="cash-tx-direction"
-            value={direction}
-            onChange={(event) => setDirection(event.target.value as TransactionDirection)}
-            className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            {(Object.keys(DIRECTION_LABELS) as TransactionDirection[]).map((value) => (
-              <option key={value} value={value}>
-                {DIRECTION_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="cash-tx-amount">Montant</Label>
-          <Input
-            id="cash-tx-amount"
-            type="number"
-            min={0.01}
-            step="0.01"
-            required
-            className="w-32"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Label htmlFor="cash-tx-label">Libellé</Label>
-          <Input id="cash-tx-label" required value={label} onChange={(e) => setLabel(e.target.value)} />
-        </div>
-        <Button type="submit" size="sm" disabled={createTransaction.isPending}>
-          {createTransaction.isPending ? "…" : "Ajouter"}
-        </Button>
-      </form>
+      {canUpdate ? (
+        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cash-tx-direction">Sens</Label>
+            <select
+              id="cash-tx-direction"
+              value={direction}
+              onChange={(event) => setDirection(event.target.value as TransactionDirection)}
+              className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              {(Object.keys(DIRECTION_LABELS) as TransactionDirection[]).map((value) => (
+                <option key={value} value={value}>
+                  {DIRECTION_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cash-tx-amount">Montant</Label>
+            <Input
+              id="cash-tx-amount"
+              type="number"
+              min={0.01}
+              step="0.01"
+              required
+              className="w-32"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Label htmlFor="cash-tx-label">Libellé</Label>
+            <Input id="cash-tx-label" required value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <Button type="submit" size="sm" disabled={createTransaction.isPending}>
+            {createTransaction.isPending ? "…" : "Ajouter"}
+          </Button>
+        </form>
+      ) : null}
       {createTransaction.isError ? (
         <p className="text-sm text-destructive">
           {createTransaction.error instanceof Error ? createTransaction.error.message : "Erreur inattendue."}
@@ -843,25 +868,29 @@ function BankAccountsCard() {
   const hotels = useHotels();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [transactionsTarget, setTransactionsTarget] = useState<BankAccount | null>(null);
+  const canCreate = usePermission("finance-bank-accounts.create");
+  const canUpdate = usePermission("finance-bank-accounts.update");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Banque</CardTitle>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter un compte bancaire
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateBankAccountForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter un compte bancaire
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateBankAccountForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -873,10 +902,12 @@ function BankAccountsCard() {
           emptyTitle="Aucun compte bancaire configuré"
           emptyDescription="Créez votre premier compte bancaire pour commencer à suivre vos virements."
           emptyAction={
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter un compte bancaire
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter un compte bancaire
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -914,16 +945,18 @@ function BankAccountsCard() {
                     <Button variant="outline" size="sm" onClick={() => setTransactionsTarget(account)}>
                       Transactions
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={updateBankAccount.isPending}
-                      onClick={() =>
-                        updateBankAccount.mutate({ id: account.id, input: { isActive: !account.isActive } })
-                      }
-                    >
-                      {account.isActive ? "Désactiver" : "Réactiver"}
-                    </Button>
+                    {canUpdate ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={updateBankAccount.isPending}
+                        onClick={() =>
+                          updateBankAccount.mutate({ id: account.id, input: { isActive: !account.isActive } })
+                        }
+                      >
+                        {account.isActive ? "Désactiver" : "Réactiver"}
+                      </Button>
+                    ) : null}
                   </div>
                 ),
               },
@@ -1054,6 +1087,7 @@ function CreateBankAccountForm({
 function BankTransactionsView({ account }: { account: BankAccount }) {
   const transactions = useBankTransactions(account.id);
   const createTransaction = useCreateBankTransaction();
+  const canUpdate = usePermission("finance-bank-accounts.update");
   const [direction, setDirection] = useState<TransactionDirection>("IN");
   const [amount, setAmount] = useState("");
   const [label, setLabel] = useState("");
@@ -1078,43 +1112,45 @@ function BankTransactionsView({ account }: { account: BankAccount }) {
         Solde actuel : <span className="font-[var(--fw-subtitle-strong)] text-foreground">{fmtGNF(Number(account.balance))}</span>
       </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="bank-tx-direction">Sens</Label>
-          <select
-            id="bank-tx-direction"
-            value={direction}
-            onChange={(event) => setDirection(event.target.value as TransactionDirection)}
-            className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            {(Object.keys(DIRECTION_LABELS) as TransactionDirection[]).map((value) => (
-              <option key={value} value={value}>
-                {DIRECTION_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="bank-tx-amount">Montant</Label>
-          <Input
-            id="bank-tx-amount"
-            type="number"
-            min={0.01}
-            step="0.01"
-            required
-            className="w-32"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-1 flex-col gap-1.5">
-          <Label htmlFor="bank-tx-label">Libellé</Label>
-          <Input id="bank-tx-label" required value={label} onChange={(e) => setLabel(e.target.value)} />
-        </div>
-        <Button type="submit" size="sm" disabled={createTransaction.isPending}>
-          {createTransaction.isPending ? "…" : "Ajouter"}
-        </Button>
-      </form>
+      {canUpdate ? (
+        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bank-tx-direction">Sens</Label>
+            <select
+              id="bank-tx-direction"
+              value={direction}
+              onChange={(event) => setDirection(event.target.value as TransactionDirection)}
+              className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              {(Object.keys(DIRECTION_LABELS) as TransactionDirection[]).map((value) => (
+                <option key={value} value={value}>
+                  {DIRECTION_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="bank-tx-amount">Montant</Label>
+            <Input
+              id="bank-tx-amount"
+              type="number"
+              min={0.01}
+              step="0.01"
+              required
+              className="w-32"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-1 flex-col gap-1.5">
+            <Label htmlFor="bank-tx-label">Libellé</Label>
+            <Input id="bank-tx-label" required value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <Button type="submit" size="sm" disabled={createTransaction.isPending}>
+            {createTransaction.isPending ? "…" : "Ajouter"}
+          </Button>
+        </form>
+      ) : null}
       {createTransaction.isError ? (
         <p className="text-sm text-destructive">
           {createTransaction.error instanceof Error ? createTransaction.error.message : "Erreur inattendue."}
@@ -1161,25 +1197,28 @@ function BudgetsCard() {
   const hotels = useHotels();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [executionTarget, setExecutionTarget] = useState<Budget | null>(null);
+  const canCreate = usePermission("finance-budgets.create");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Budgets</CardTitle>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Créer un budget
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateBudgetForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Créer un budget
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateBudgetForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -1191,10 +1230,12 @@ function BudgetsCard() {
           emptyTitle="Aucun budget créé"
           emptyDescription="Créez votre premier budget pour commencer à suivre vos écarts prévu/réalisé."
           emptyAction={
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Icons.IconPlus />
-              Créer un budget
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                <Icons.IconPlus />
+                Créer un budget
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -1359,6 +1400,8 @@ function BudgetExecutionView({ budget }: { budget: Budget }) {
   const checkOverspend = useCheckBudgetOverspend();
   const departments = useDepartments();
   const categories = useFinancialCategories();
+  const canUpdate = usePermission("finance-budgets.update");
+  const canCheckOverspend = usePermission("finance-budgets.check-overspend");
 
   const [lineType, setLineType] = useState<FinancialCategoryType>("EXPENSE");
   const [plannedAmount, setPlannedAmount] = useState("");
@@ -1399,14 +1442,16 @@ function BudgetExecutionView({ budget }: { budget: Budget }) {
         <p className="text-sm text-muted-foreground">
           {new Date(budget.startDate).toLocaleDateString("fr-FR")} → {new Date(budget.endDate).toLocaleDateString("fr-FR")}
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={checkOverspend.isPending}
-          onClick={() => checkOverspend.mutate(budget.id)}
-        >
-          Vérifier les dépassements
-        </Button>
+        {canCheckOverspend ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={checkOverspend.isPending}
+            onClick={() => checkOverspend.mutate(budget.id)}
+          >
+            Vérifier les dépassements
+          </Button>
+        ) : null}
       </div>
       {checkOverspend.data ? (
         <p className="text-sm text-muted-foreground">
@@ -1416,74 +1461,76 @@ function BudgetExecutionView({ budget }: { budget: Budget }) {
         </p>
       ) : null}
 
-      <form onSubmit={handleAddLine} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="budget-line-type">Type</Label>
-          <select
-            id="budget-line-type"
-            value={lineType}
-            onChange={(event) => {
-              setLineType(event.target.value as FinancialCategoryType);
-              setCategoryId("");
-            }}
-            className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            {(Object.keys(CATEGORY_TYPE_LABELS) as FinancialCategoryType[]).map((value) => (
-              <option key={value} value={value}>
-                {CATEGORY_TYPE_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="budget-line-department">Département (optionnel)</Label>
-          <select
-            id="budget-line-department"
-            value={departmentId}
-            onChange={(event) => setDepartmentId(event.target.value)}
-            className="flex h-9 w-36 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            <option value="">Tous</option>
-            {(departments.data ?? []).map((department) => (
-              <option key={department.id} value={department.id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="budget-line-category">Catégorie (optionnel)</Label>
-          <select
-            id="budget-line-category"
-            value={categoryId}
-            onChange={(event) => setCategoryId(event.target.value)}
-            className="flex h-9 w-36 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            <option value="">Toutes</option>
-            {matchingCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="budget-line-amount">Prévu (GNF)</Label>
-          <Input
-            id="budget-line-amount"
-            type="number"
-            min={0.01}
-            step="0.01"
-            required
-            className="w-32"
-            value={plannedAmount}
-            onChange={(e) => setPlannedAmount(e.target.value)}
-          />
-        </div>
-        <Button type="submit" size="sm" disabled={addLine.isPending}>
-          {addLine.isPending ? "…" : "Ajouter une ligne"}
-        </Button>
-      </form>
+      {canUpdate ? (
+        <form onSubmit={handleAddLine} className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="budget-line-type">Type</Label>
+            <select
+              id="budget-line-type"
+              value={lineType}
+              onChange={(event) => {
+                setLineType(event.target.value as FinancialCategoryType);
+                setCategoryId("");
+              }}
+              className="flex h-9 w-28 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              {(Object.keys(CATEGORY_TYPE_LABELS) as FinancialCategoryType[]).map((value) => (
+                <option key={value} value={value}>
+                  {CATEGORY_TYPE_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="budget-line-department">Département (optionnel)</Label>
+            <select
+              id="budget-line-department"
+              value={departmentId}
+              onChange={(event) => setDepartmentId(event.target.value)}
+              className="flex h-9 w-36 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Tous</option>
+              {(departments.data ?? []).map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="budget-line-category">Catégorie (optionnel)</Label>
+            <select
+              id="budget-line-category"
+              value={categoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+              className="flex h-9 w-36 rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="">Toutes</option>
+              {matchingCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="budget-line-amount">Prévu (GNF)</Label>
+            <Input
+              id="budget-line-amount"
+              type="number"
+              min={0.01}
+              step="0.01"
+              required
+              className="w-32"
+              value={plannedAmount}
+              onChange={(e) => setPlannedAmount(e.target.value)}
+            />
+          </div>
+          <Button type="submit" size="sm" disabled={addLine.isPending}>
+            {addLine.isPending ? "…" : "Ajouter une ligne"}
+          </Button>
+        </form>
+      ) : null}
       {addLine.isError ? (
         <p className="text-sm text-destructive">
           {addLine.error instanceof Error ? addLine.error.message : "Erreur inattendue."}
@@ -1551,25 +1598,30 @@ function InvoicesCard() {
   const [detailTargetId, setDetailTargetId] = useState<string | null>(null);
   const anyPending = issueInvoice.isPending || cancelInvoice.isPending;
   const detailTarget = invoices.data?.find((invoice) => invoice.id === detailTargetId) ?? null;
+  const canCreate = usePermission("finance-invoices.create");
+  const canIssue = usePermission("finance-invoices.issue");
+  const canCancel = usePermission("finance-invoices.cancel");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Facturation</CardTitle>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Nouvelle facture
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <CreateInvoiceForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Nouvelle facture
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <CreateInvoiceForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -1581,10 +1633,12 @@ function InvoicesCard() {
           emptyTitle="Aucune facture créée"
           emptyDescription="Créez votre première facture client."
           emptyAction={
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Icons.IconPlus />
-              Nouvelle facture
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                <Icons.IconPlus />
+                Nouvelle facture
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -1628,12 +1682,13 @@ function InvoicesCard() {
                     <Button variant="outline" size="sm" onClick={() => setDetailTargetId(invoice.id)}>
                       Détails
                     </Button>
-                    {invoice.status === "DRAFT" ? (
+                    {invoice.status === "DRAFT" && canIssue ? (
                       <Button size="sm" disabled={anyPending} onClick={() => issueInvoice.mutate(invoice.id)}>
                         Émettre
                       </Button>
                     ) : null}
-                    {invoice.status === "DRAFT" || invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID" ? (
+                    {(invoice.status === "DRAFT" || invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID") &&
+                    canCancel ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1920,8 +1975,10 @@ function InvoiceDetailView({ invoice }: { invoice: Invoice }) {
   const createPayment = useCreatePayment();
   const createCreditNote = useCreateCreditNote();
 
-  const canPay = invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID";
-  const canCredit = invoice.status !== "DRAFT" && invoice.status !== "CANCELLED";
+  const canCreatePayment = usePermission("finance-payments.create");
+  const canCreateCreditNote = usePermission("finance-credit-notes.create");
+  const canPay = (invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID") && canCreatePayment;
+  const canCredit = invoice.status !== "DRAFT" && invoice.status !== "CANCELLED" && canCreateCreditNote;
 
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");

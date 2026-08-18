@@ -27,6 +27,7 @@ import { useAttendance, useClockOutAttendance, useCreateAttendance } from "../..
 import { useDepartments } from "../../hooks/use-departments.js";
 import { useCreateEmployee, useEmployees, useUpdateEmployee } from "../../hooks/use-employees.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import {
   useApproveLeaveRequest,
   useCancelLeaveRequest,
@@ -319,6 +320,10 @@ function LeaveRequestsCard() {
   const reject = useRejectLeaveRequest();
   const cancel = useCancelLeaveRequest();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("leave-requests.create");
+  const canApprove = usePermission("leave-requests.approve");
+  const canReject = usePermission("leave-requests.reject");
+  const canCancel = usePermission("leave-requests.cancel");
 
   const employeeNameById = new Map(
     (employees.data ?? []).map((employee) => [employee.id, `${employee.firstName} ${employee.lastName}`])
@@ -329,21 +334,23 @@ function LeaveRequestsCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Congés</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" disabled={(employees.data ?? []).length === 0}>
-              <Icons.IconPlus />
-              Nouvelle demande
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateLeaveRequestForm
-              employeeOptions={employees.data ?? []}
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" disabled={(employees.data ?? []).length === 0}>
+                <Icons.IconPlus />
+                Nouvelle demande
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateLeaveRequestForm
+                employeeOptions={employees.data ?? []}
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -359,7 +366,7 @@ function LeaveRequestsCard() {
               : "Créez votre première demande de congé."
           }
           emptyAction={
-            (employees.data ?? []).length > 0 ? (
+            canCreate && (employees.data ?? []).length > 0 ? (
               <Button size="sm" onClick={() => setDialogOpen(true)}>
                 <Icons.IconPlus />
                 Nouvelle demande
@@ -401,27 +408,34 @@ function LeaveRequestsCard() {
                 header: "",
                 align: "right",
                 cell: (leaveRequest) =>
-                  leaveRequest.status === "PENDING" ? (
+                  leaveRequest.status === "PENDING" &&
+                  (canApprove || canReject || canCancel) ? (
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button size="sm" disabled={anyPending} onClick={() => approve.mutate(leaveRequest.id)}>
-                        Approuver
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={anyPending}
-                        onClick={() => reject.mutate(leaveRequest.id)}
-                      >
-                        Rejeter
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={anyPending}
-                        onClick={() => cancel.mutate(leaveRequest.id)}
-                      >
-                        Annuler
-                      </Button>
+                      {canApprove ? (
+                        <Button size="sm" disabled={anyPending} onClick={() => approve.mutate(leaveRequest.id)}>
+                          Approuver
+                        </Button>
+                      ) : null}
+                      {canReject ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={anyPending}
+                          onClick={() => reject.mutate(leaveRequest.id)}
+                        >
+                          Rejeter
+                        </Button>
+                      ) : null}
+                      {canCancel ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={anyPending}
+                          onClick={() => cancel.mutate(leaveRequest.id)}
+                        >
+                          Annuler
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null,
               },

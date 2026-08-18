@@ -25,6 +25,7 @@ import { useBankAccounts } from "../../hooks/use-bank-accounts.js";
 import { useEmployees } from "../../hooks/use-employees.js";
 import { useCashAccounts, useFinancialCategories } from "../../hooks/use-finance-entries.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import { useCreatePayslip, useFinalizePayslip, useMarkPaidPayslip, usePayslips } from "../../hooks/use-payslips.js";
 import type { PaymentMethod } from "../../services/finance-entries.js";
 import type { Payslip } from "../../services/payslips.js";
@@ -75,6 +76,9 @@ function PayslipsCard() {
   const finalize = useFinalizePayslip();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [markPaidTarget, setMarkPaidTarget] = useState<Payslip | null>(null);
+  const canCreate = usePermission("payslips.create");
+  const canFinalize = usePermission("payslips.finalize");
+  const canMarkPaid = usePermission("payslips.mark-paid");
 
   const employeeNameById = new Map(
     (employees.data ?? []).map((employee) => [employee.id, `${employee.firstName} ${employee.lastName}`])
@@ -84,21 +88,23 @@ function PayslipsCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Bulletins de paie</CardTitle>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" disabled={(employees.data ?? []).length === 0}>
-              <Icons.IconPlus />
-              Nouveau bulletin
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreatePayslipForm
-              employeeOptions={employees.data ?? []}
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" disabled={(employees.data ?? []).length === 0}>
+                <Icons.IconPlus />
+                Nouveau bulletin
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreatePayslipForm
+                employeeOptions={employees.data ?? []}
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -114,7 +120,7 @@ function PayslipsCard() {
               : "Créez votre premier bulletin de paie."
           }
           emptyAction={
-            (employees.data ?? []).length > 0 ? (
+            canCreate && (employees.data ?? []).length > 0 ? (
               <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
                 <Icons.IconPlus />
                 Nouveau bulletin
@@ -154,6 +160,7 @@ function PayslipsCard() {
                 align: "right",
                 cell: (payslip) => {
                   if (payslip.status === "DRAFT") {
+                    if (!canFinalize) return null;
                     return (
                       <Button size="sm" disabled={finalize.isPending} onClick={() => finalize.mutate(payslip.id)}>
                         Finaliser
@@ -161,6 +168,7 @@ function PayslipsCard() {
                     );
                   }
                   if (payslip.status === "FINALIZED") {
+                    if (!canMarkPaid) return null;
                     return (
                       <Button size="sm" onClick={() => setMarkPaidTarget(payslip)}>
                         Marquer payé
