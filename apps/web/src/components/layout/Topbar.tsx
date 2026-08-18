@@ -15,14 +15,16 @@ import {
 } from "@nimbalodge/ui";
 
 import { ALL_NAV_ITEMS } from "./nav-config.js";
+import { PendingSyncBadge } from "../common/pending-sync-panel.js";
 import { useLogout } from "../../hooks/use-auth.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 import { useUIStore } from "../../stores/ui-store.js";
 
 // Port de docs/legacy/nimbalodge-app/src/components/layout/Topbar.jsx : titre/sous-titre dérivés de la route
 // courante, burger mobile, menu utilisateur — piloté par l'utilisateur réel (GET /auth/me).
-// L'icône "sync" (spinner) reflète useIsFetching() : indicateur d'activité réseau en arrière-plan,
-// pas une file de synchronisation offline (non implémentée, voir docs/architecture/phase-14-frontend-connection.md).
+// L'icône "sync" (spinner) reflète useIsFetching() : indicateur d'activité réseau en arrière-plan
+// générique (toute requête React Query en vol). PendingSyncBadge est distinct : la file de
+// mutations hors ligne (Étape 6, voir offline/mutation-queue.ts).
 export function Topbar() {
   const location = useLocation();
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
@@ -49,6 +51,8 @@ export function Topbar() {
       {isFetching > 0 ? (
         <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Synchronisation en cours" />
       ) : null}
+
+      <PendingSyncBadge />
 
       <Button variant="ghost" size="icon" aria-label="Notifications" asChild>
         <Link to="/notifications">

@@ -83,6 +83,11 @@ const STATUS_LABELS: Record<string, string> = {
   // InvoiceStatus (Phase 6) — DRAFT/PAID/CANCELLED déjà présents ci-dessus (même sémantique).
   ISSUED: "Émise",
   PARTIALLY_PAID: "Partiellement payée",
+  // MutationStatus (Étape 6, Offline) — "pending" réutilise déjà la clé minuscule ci-dessus.
+  synced: "Synchronisé",
+  syncing: "Synchronisation…",
+  error: "Erreur",
+  conflict: "Conflit",
 };
 
 const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -119,6 +124,10 @@ const STATUS_VARIANTS: Record<string, BadgeProps["variant"]> = {
   FAILURE: "critical",
   ISSUED: "default",
   PARTIALLY_PAID: "warning",
+  synced: "success",
+  syncing: "default",
+  error: "critical",
+  conflict: "critical",
 };
 
 export interface StatusBadgeProps extends Omit<BadgeProps, "variant"> {
