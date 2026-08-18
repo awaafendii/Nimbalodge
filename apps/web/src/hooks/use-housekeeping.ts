@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { queueOrSend, type QueueOrSendResult } from "../offline/mutation-queue.js";
 import * as housekeepingService from "../services/housekeeping.js";
 import type { CreateHousekeepingTaskInput } from "../services/housekeeping.js";
 
@@ -15,7 +16,8 @@ export function useHousekeepingDashboard() {
 export function useCreateHousekeepingTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateHousekeepingTaskInput) => housekeepingService.createHousekeepingTask(input),
+    mutationFn: (input: CreateHousekeepingTaskInput): Promise<QueueOrSendResult<unknown>> =>
+      queueOrSend({ domain: "housekeeping", type: "create-task", method: "POST", path: "/housekeeping-tasks", body: input }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEKEEPING_DASHBOARD_KEY }),
   });
 }
@@ -23,7 +25,8 @@ export function useCreateHousekeepingTask() {
 export function useCleanHousekeepingTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => housekeepingService.cleanHousekeepingTask(id),
+    mutationFn: (id: string): Promise<QueueOrSendResult<unknown>> =>
+      queueOrSend({ domain: "housekeeping", type: "clean", method: "POST", path: `/housekeeping-tasks/${id}/clean` }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEKEEPING_DASHBOARD_KEY }),
   });
 }
@@ -31,7 +34,8 @@ export function useCleanHousekeepingTask() {
 export function useInspectHousekeepingTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => housekeepingService.inspectHousekeepingTask(id),
+    mutationFn: (id: string): Promise<QueueOrSendResult<unknown>> =>
+      queueOrSend({ domain: "housekeeping", type: "inspect", method: "POST", path: `/housekeeping-tasks/${id}/inspect` }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEKEEPING_DASHBOARD_KEY }),
   });
 }

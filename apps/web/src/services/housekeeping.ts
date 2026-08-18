@@ -19,14 +19,5 @@ export function getHousekeepingDashboard(): Promise<RoomHousekeepingStatusEntry[
   return apiClient.get<RoomHousekeepingStatusEntry[]>("/housekeeping-tasks/dashboard");
 }
 
-export function createHousekeepingTask(input: CreateHousekeepingTaskInput) {
-  return apiClient.post("/housekeeping-tasks", input);
-}
-
-export function cleanHousekeepingTask(id: string) {
-  return apiClient.post(`/housekeeping-tasks/${id}/clean`);
-}
-
-export function inspectHousekeepingTask(id: string) {
-  return apiClient.post(`/housekeeping-tasks/${id}/inspect`);
-}
+// create/clean/inspect n'appellent plus apiClient directement — voir hooks/use-housekeeping.ts, qui
+// passe désormais par offline/mutation-queue.ts (queueOrSend) pour le support hors ligne, Étape 6.

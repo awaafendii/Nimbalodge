@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { queueOrSend, type QueueOrSendResult } from "../offline/mutation-queue.js";
 import * as maintenanceRequestsService from "../services/maintenance-requests.js";
-import type { CreateMaintenanceRequestInput } from "../services/maintenance-requests.js";
+import type { CreateMaintenanceRequestInput, MaintenanceRequest } from "../services/maintenance-requests.js";
 
 const MAINTENANCE_REQUESTS_KEY = ["maintenance-requests"] as const;
 
@@ -15,29 +16,29 @@ export function useMaintenanceRequests() {
 export function useCreateMaintenanceRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CreateMaintenanceRequestInput) => maintenanceRequestsService.createMaintenanceRequest(input),
+    mutationFn: (input: CreateMaintenanceRequestInput): Promise<QueueOrSendResult<MaintenanceRequest>> =>
+      queueOrSend({ domain: "maintenance-requests", type: "create", method: "POST", path: "/maintenance-requests", body: input }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MAINTENANCE_REQUESTS_KEY }),
   });
 }
 
-function useMaintenanceRequestTransition(
-  action: (id: string) => Promise<maintenanceRequestsService.MaintenanceRequest>
-) {
+function useMaintenanceRequestTransition(type: string, path: (id: string) => string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => action(id),
+    mutationFn: (id: string): Promise<QueueOrSendResult<MaintenanceRequest>> =>
+      queueOrSend({ domain: "maintenance-requests", type, method: "POST", path: path(id) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MAINTENANCE_REQUESTS_KEY }),
   });
 }
 
 export function useApproveMaintenanceRequest() {
-  return useMaintenanceRequestTransition((id) => maintenanceRequestsService.approveMaintenanceRequest(id));
+  return useMaintenanceRequestTransition("approve", (id) => `/maintenance-requests/${id}/approve`);
 }
 
 export function useRejectMaintenanceRequest() {
-  return useMaintenanceRequestTransition((id) => maintenanceRequestsService.rejectMaintenanceRequest(id));
+  return useMaintenanceRequestTransition("reject", (id) => `/maintenance-requests/${id}/reject`);
 }
 
 export function useCancelMaintenanceRequest() {
-  return useMaintenanceRequestTransition((id) => maintenanceRequestsService.cancelMaintenanceRequest(id));
+  return useMaintenanceRequestTransition("cancel", (id) => `/maintenance-requests/${id}/cancel`);
 }

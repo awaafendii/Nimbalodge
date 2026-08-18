@@ -35,20 +35,6 @@ export function listMaintenanceInterventions(): Promise<MaintenanceIntervention[
   return apiClient.get<MaintenanceIntervention[]>("/maintenance-interventions");
 }
 
-export function createMaintenanceIntervention(
-  input: CreateMaintenanceInterventionInput
-): Promise<MaintenanceIntervention> {
-  return apiClient.post<MaintenanceIntervention>("/maintenance-interventions", input);
-}
-
-export function startMaintenanceIntervention(id: string): Promise<MaintenanceIntervention> {
-  return apiClient.post<MaintenanceIntervention>(`/maintenance-interventions/${id}/start`);
-}
-
-export function completeMaintenanceIntervention(id: string): Promise<MaintenanceIntervention> {
-  return apiClient.post<MaintenanceIntervention>(`/maintenance-interventions/${id}/complete`);
-}
-
-export function cancelMaintenanceIntervention(id: string): Promise<MaintenanceIntervention> {
-  return apiClient.post<MaintenanceIntervention>(`/maintenance-interventions/${id}/cancel`);
-}
+// create/start/complete/cancel n'appellent plus apiClient directement — voir
+// hooks/use-maintenance-interventions.ts, qui passe désormais par offline/mutation-queue.ts
+// (queueOrSend) pour le support hors ligne, Étape 6.

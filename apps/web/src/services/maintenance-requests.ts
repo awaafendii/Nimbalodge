@@ -27,18 +27,6 @@ export function listMaintenanceRequests(): Promise<MaintenanceRequest[]> {
   return apiClient.get<MaintenanceRequest[]>("/maintenance-requests");
 }
 
-export function createMaintenanceRequest(input: CreateMaintenanceRequestInput): Promise<MaintenanceRequest> {
-  return apiClient.post<MaintenanceRequest>("/maintenance-requests", input);
-}
-
-export function approveMaintenanceRequest(id: string): Promise<MaintenanceRequest> {
-  return apiClient.post<MaintenanceRequest>(`/maintenance-requests/${id}/approve`);
-}
-
-export function rejectMaintenanceRequest(id: string): Promise<MaintenanceRequest> {
-  return apiClient.post<MaintenanceRequest>(`/maintenance-requests/${id}/reject`);
-}
-
-export function cancelMaintenanceRequest(id: string): Promise<MaintenanceRequest> {
-  return apiClient.post<MaintenanceRequest>(`/maintenance-requests/${id}/cancel`);
-}
+// create/approve/reject/cancel n'appellent plus apiClient directement — voir
+// hooks/use-maintenance-requests.ts, qui passe désormais par offline/mutation-queue.ts
+// (queueOrSend) pour le support hors ligne, Étape 6.
