@@ -13,6 +13,7 @@ import {
 import { usePendingMutations, usePendingSyncActions } from "../../hooks/use-pending-sync.js";
 import type { PendingMutation } from "../../offline/db.js";
 import { triggerSync } from "../../offline/sync-manager.js";
+import { useAuthStore } from "../../stores/auth-store.js";
 
 const DOMAIN_LABELS: Record<string, string> = {
   attendances: "Présence",
@@ -46,20 +47,26 @@ function formatTimestamp(ms: number): string {
 }
 
 export function PendingSyncBadge() {
-  const { data: mutations } = usePendingMutations();
-  const count = mutations?.length ?? 0;
-  const hasIssues = (mutations ?? []).some((m) => m.status === "error" || m.status === "conflict");
+  const { data: allMutations } = usePendingMutations();
+  const userId = useAuthStore((s) => s.user?.id);
+  // Un appareil partagé peut porter la file d'un utilisateur précédent qui ne s'est pas
+  // reconnecté depuis — jamais mélangée à celle de l'utilisateur actif (voir sync-manager.ts, qui
+  // ne rejoue que les mutations de l'utilisateur courant). Le badge ne compte donc que les
+  // siennes ; les autres restent visibles dans le panneau, mais uniquement comme un total anonyme.
+  const mine = (allMutations ?? []).filter((m) => m.userId === userId);
+  const others = (allMutations ?? []).filter((m) => m.userId !== userId);
+  const hasIssues = mine.some((m) => m.status === "error" || m.status === "conflict");
 
   return (
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Opérations en attente" className="relative">
           <RefreshCw className="size-4" />
-          {count > 0 ? (
+          {mine.length > 0 ? (
             <span
               className={`absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full text-[10px] font-[var(--fw-small-strong)] text-white ${hasIssues ? "bg-critical" : "bg-warning"}`}
             >
-              {count > 9 ? "9+" : count}
+              {mine.length > 9 ? "9+" : mine.length}
             </span>
           ) : null}
         </Button>
@@ -71,21 +78,35 @@ export function PendingSyncBadge() {
             Actions saisies hors ligne ou en attente de synchronisation avec le serveur.
           </SheetDescription>
         </SheetHeader>
-        <PendingSyncList mutations={mutations ?? []} />
+        <PendingSyncList mutations={mine} otherUsersCount={others.length} />
       </SheetContent>
     </Sheet>
   );
 }
 
-function PendingSyncList({ mutations }: { mutations: PendingMutation[] }) {
+function PendingSyncList({ mutations, otherUsersCount }: { mutations: PendingMutation[]; otherUsersCount: number }) {
   const { retry, discard } = usePendingSyncActions();
 
+  const otherUsersNotice =
+    otherUsersCount > 0 ? (
+      <p className="text-xs text-muted-foreground">
+        {otherUsersCount} action{otherUsersCount > 1 ? "s" : ""} en attente d'un autre utilisateur sur cet appareil —
+        sera synchronisée à sa reconnexion.
+      </p>
+    ) : null;
+
   if (mutations.length === 0) {
-    return <p className="mt-6 text-sm text-muted-foreground">Aucune opération en attente — tout est synchronisé.</p>;
+    return (
+      <div className="mt-6 flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground">Aucune opération en attente — tout est synchronisé.</p>
+        {otherUsersNotice}
+      </div>
+    );
   }
 
   return (
     <div className="mt-4 flex flex-1 flex-col gap-3 overflow-y-auto">
+      {otherUsersNotice}
       {mutations.map((mutation) => (
         <div key={mutation.id} className="flex flex-col gap-2 rounded-md border border-border p-3">
           <div className="flex items-start justify-between gap-2">
