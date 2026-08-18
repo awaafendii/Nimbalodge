@@ -678,10 +678,7 @@ function CreateAttendanceForm({
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!employeeId) return;
-    createAttendance.mutate(
-      { employeeId, hotelId: hotelId || undefined },
-      { onSuccess: onDone }
-    );
+    createAttendance.mutate({ employeeId, hotelId: hotelId || undefined }, { onSuccess: () => onDone() });
   }
 
   return (

@@ -21,10 +21,5 @@ export function listAttendance(): Promise<Attendance[]> {
   return apiClient.get<Attendance[]>("/attendances");
 }
 
-export function createAttendance(input: CreateAttendanceInput): Promise<Attendance> {
-  return apiClient.post<Attendance>("/attendances", input);
-}
-
-export function clockOutAttendance(id: string): Promise<Attendance> {
-  return apiClient.post<Attendance>(`/attendances/${id}/clock-out`);
-}
+// create/clockOut n'appellent plus apiClient directement — voir hooks/use-attendance.ts, qui
+// passe désormais par offline/mutation-queue.ts (queueOrSend) pour le support hors ligne, Étape 6.

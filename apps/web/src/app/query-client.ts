@@ -6,6 +6,17 @@ export const queryClient = new QueryClient({
       staleTime: 60_000,
       retry: 1,
     },
+    // Étape 6 (Offline) — par défaut TanStack Query v5 met en pause l'exécution d'une mutation tant
+    // que navigator.onLine (via son onlineManager) est false : mutationFn ne serait alors JAMAIS
+    // appelée hors ligne, empêchant offline/mutation-queue.ts (queueOrSend) de détecter lui-même la
+    // perte réseau et de mettre l'action en file. "always" force l'exécution immédiate quel que soit
+    // l'état réseau perçu par la librairie : pour les domaines pilotes (queueOrSend), l'échec réseau
+    // est alors intercepté et mis en file par queueOrSend lui-même ; pour les mutations qui restent
+    // online-only (ex. Finance), l'échec réseau remonte immédiatement via onError plutôt que de
+    // bloquer indéfiniment le bouton sur "en cours" — un comportement correct dans les deux cas.
+    mutations: {
+      networkMode: "always",
+    },
   },
 });
 

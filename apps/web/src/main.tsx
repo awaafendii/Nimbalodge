@@ -9,9 +9,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import App from "./app/App.js";
+import { initSyncManager } from "./offline/sync-manager.js";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
   </StrictMode>
 );
+
+initSyncManager();
