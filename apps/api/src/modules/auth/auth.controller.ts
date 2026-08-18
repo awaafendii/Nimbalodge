@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 
+import { AuthenticatedOnly } from "../../common/decorators/authenticated-only.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Public } from "../../common/decorators/public.decorator";
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
@@ -8,9 +9,14 @@ import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
-// login/refresh/logout doivent être @Public() : impossible d'exiger un token d'accès pour en
-// obtenir un (deadlock). Throttle limité à login/refresh — les endpoints les plus exposés au
-// brute-force créés par cette phase (§52).
+// login/refresh doivent être @Public() : impossible d'exiger un token d'accès pour en obtenir un
+// (deadlock). logout est @Public() pour une raison différente : il doit rester utilisable même
+// après expiration de l'access token (l'utilisateur clique "se déconnecter" avec une session déjà
+// expirée) — mais reste authentifié par un credential fort, le refresh token brut lui-même, vérifié
+// cryptographiquement dans AuthService.logout() avant toute révocation (voir ce fichier). Throttle
+// sur les trois (Étape 7) : login/refresh restent les plus exposés au brute-force (§52), logout
+// vérifie une signature JWT à chaque appel donc coûte peu mais ne doit pas rester sans limite pour
+// autant.
 @Controller("auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -32,12 +38,14 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("logout")
   @HttpCode(HttpStatus.OK)
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @AuthenticatedOnly()
   @Get("me")
   me(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.resolveMe(user.id);
