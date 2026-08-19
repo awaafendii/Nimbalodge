@@ -9,5 +9,8 @@ import { FinanceSummaryService } from "./finance-summary.service";
   imports: [CashAccountsModule, BankAccountsModule],
   controllers: [FinanceSummaryController],
   providers: [FinanceSummaryService],
+  // Exporté pour Nimba AI (FinanceInsightsTool, Étape 4) — réutilise getSummary() directement
+  // plutôt que de dupliquer sa logique d'agrégation/scope.
+  exports: [FinanceSummaryService],
 })
 export class FinanceSummaryModule {}
