@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { BadRequestException, Injectable } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
+import { PinoLogger } from "nestjs-pino";
 
 import { AuditService } from "../../common/audit/audit.service";
 import { hashToken } from "../../common/crypto/hash-token";
@@ -9,18 +10,24 @@ import { PrismaService } from "../../database/prisma.service";
 
 // Étape 7 (durcissement Auth) — réinitialisation de mot de passe. Aucun fournisseur d'email n'est
 // branché (décision explicite, pas d'infrastructure SMTP/API dans ce projet) : le lien est écrit
-// dans les logs serveur uniquement, JAMAIS retourné dans la réponse HTTP — remplacer console.log
-// par un vrai envoi (Resend/SendGrid/...) avant la mise en production réelle. La réponse de
-// requestReset() est volontairement identique que l'email existe ou non : empêche l'énumération de
-// comptes via ce endpoint.
+// dans les logs serveur uniquement, JAMAIS retourné dans la réponse HTTP — remplacer ce log par un
+// vrai envoi (Resend/SendGrid/...) avant la mise en production réelle. Volontairement un appel
+// logger.info() en clair (le token n'est PAS dans un chemin redact — voir logging.module.ts, qui ne
+// masque que les req.body.* d'authentification réels) : c'est le seul endroit du projet où
+// journaliser un secret est le comportement voulu, tant qu'aucun canal d'envoi réel n'existe. La
+// réponse de requestReset() est volontairement identique que l'email existe ou non : empêche
+// l'énumération de comptes via ce endpoint.
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class PasswordResetService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
-  ) {}
+    private readonly audit: AuditService,
+    private readonly logger: PinoLogger
+  ) {
+    this.logger.setContext(PasswordResetService.name);
+  }
 
   async requestReset(email: string, ipAddress: string | null): Promise<{ success: true }> {
     const user = await this.prisma.user.findUnique({ where: { email } });
@@ -42,7 +49,10 @@ export class PasswordResetService {
       data: { userId: user.id, tokenHash: hashToken(rawToken), expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS) },
     });
 
-    console.log(`[PasswordReset] Lien de réinitialisation pour ${email} : token=${rawToken} (expire dans 30 min)`);
+    this.logger.info(
+      { email, token: rawToken, expiresInMinutes: 30 },
+      "Lien de réinitialisation de mot de passe (substitut d'envoi email, voir commentaire de tête de fichier)"
+    );
 
     this.audit.record({
       userId: user.id,

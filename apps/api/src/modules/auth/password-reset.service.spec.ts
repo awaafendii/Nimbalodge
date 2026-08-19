@@ -1,4 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
+import type { PinoLogger } from "nestjs-pino";
 
 import type { AuditService } from "../../common/audit/audit.service";
 import type { PrismaService } from "../../database/prisma.service";
@@ -16,8 +17,13 @@ describe("PasswordResetService", () => {
       refreshToken: { updateMany: jest.fn() },
     };
     const audit = { record: jest.fn() };
-    const service = new PasswordResetService(prisma as unknown as PrismaService, audit as unknown as AuditService);
-    return { service, prisma, audit };
+    const logger = { setContext: jest.fn(), info: jest.fn() };
+    const service = new PasswordResetService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+      logger as unknown as PinoLogger
+    );
+    return { service, prisma, audit, logger };
   }
 
   const activeUser = {

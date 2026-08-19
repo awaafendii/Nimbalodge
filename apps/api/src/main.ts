@@ -3,11 +3,17 @@ import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import helmet from "helmet";
+import { Logger } from "nestjs-pino";
 
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // bufferLogs : les logs émis avant que le logger pino ne soit attaché (ex. pendant
+  // NestFactory.create lui-même) sont mis en attente puis rejoués via pino, au lieu d'utiliser le
+  // Logger console par défaut de Nest pour cette courte fenêtre — un seul format de log du début à
+  // la fin du cycle de vie du process.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
   const config = app.get(ConfigService);
 
   app.use(helmet());
@@ -19,8 +25,7 @@ async function bootstrap() {
   // — prioritaire sur API_PORT (dev local uniquement) quand présent.
   const port = process.env.PORT ? Number(process.env.PORT) : (config.get<number>("API_PORT") ?? 4000);
   await app.listen(port, "0.0.0.0");
-  // eslint-disable-next-line no-console
-  console.log(`NimbaLodge API démarrée sur le port ${port}`);
+  app.get(Logger).log(`NimbaLodge API démarrée sur le port ${port}`);
 }
 
 bootstrap();

@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AuditModule } from "./common/audit/audit.module";
 import { AuthzAuditFilter } from "./common/audit/authz-audit.filter";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
+import { AppLoggingModule } from "./common/logging/logging.module";
 import { IdempotencyInterceptor } from "./common/interceptors/idempotency.interceptor";
 import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./database/prisma.module";
@@ -55,6 +56,7 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 100 }]),
+    AppLoggingModule,
     PrismaModule,
     AuditModule,
     HealthModule,

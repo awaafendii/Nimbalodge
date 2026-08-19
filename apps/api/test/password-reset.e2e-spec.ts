@@ -1,4 +1,5 @@
 import { INestApplication } from "@nestjs/common";
+import { PinoLogger } from "nestjs-pino";
 import request from "supertest";
 
 import { resetDatabase } from "./support/database";
@@ -19,25 +20,24 @@ describe("Réinitialisation de mot de passe", () => {
   let userId: string;
 
   // Aucun fournisseur d'email n'est branché (décision produit, Étape 7) : le token brut est
-  // uniquement écrit dans les logs serveur, jamais retourné par l'API — on l'intercepte ici via un
-  // espion sur console.log, exactement comme un opérateur le lirait dans les logs réels.
+  // uniquement écrit dans les logs serveur (via PinoLogger, voir password-reset.service.ts), jamais
+  // retourné par l'API — on l'intercepte ici en espionnant PinoLogger.prototype.info directement
+  // (plutôt que stdout/console.log, qui passe par un transport pino-pretty asynchrone en environnement
+  // de test et ne serait pas fiable à intercepter de façon synchrone).
   function captureResetToken(spy: jest.SpyInstance): string {
-    const call = spy.mock.calls.find((args) => typeof args[0] === "string" && args[0].includes("[PasswordReset]"));
+    const call = spy.mock.calls.find((args) => typeof args[0] === "object" && typeof (args[0] as { token?: unknown }).token === "string");
     if (!call) throw new Error("Aucun lien de réinitialisation n'a été loggé");
-    const match = /token=([a-f0-9]+)/.exec(call[0] as string);
-    const token = match?.[1];
-    if (!token) throw new Error("Token introuvable dans le message loggé");
-    return token;
+    return (call[0] as { token: string }).token;
   }
 
   async function requestReset(targetEmail: string): Promise<string | null> {
-    const logSpy = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    const infoSpy = jest.spyOn(PinoLogger.prototype, "info").mockImplementation(() => undefined);
     try {
       await request(app.getHttpServer()).post("/api/v1/auth/password-reset/request").send({ email: targetEmail }).expect(200);
-      const call = logSpy.mock.calls.find((args) => typeof args[0] === "string" && args[0].includes("[PasswordReset]"));
-      return call ? captureResetToken(logSpy) : null;
+      const call = infoSpy.mock.calls.find((args) => typeof args[0] === "object" && typeof (args[0] as { token?: unknown }).token === "string");
+      return call ? captureResetToken(infoSpy) : null;
     } finally {
-      logSpy.mockRestore();
+      infoSpy.mockRestore();
     }
   }
 
