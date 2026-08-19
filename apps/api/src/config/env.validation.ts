@@ -26,6 +26,12 @@ class EnvironmentVariables {
   @IsNotEmpty()
   JWT_REFRESH_SECRET!: string;
 
+  // Étape 7 — secret distinct pour le token de challenge 2FA (voir two-factor.service.ts) : jamais
+  // partagé avec JWT_ACCESS_SECRET, pour qu'un challenge token ne puisse jamais être accepté comme
+  // un vrai access token par JwtAccessStrategy (signature invalide avec le mauvais secret).
+  @IsNotEmpty()
+  JWT_2FA_CHALLENGE_SECRET!: string;
+
   @IsNotEmpty()
   JWT_ACCESS_EXPIRES_IN: string = "15m";
 

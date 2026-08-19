@@ -21,6 +21,16 @@ interface RefreshTokenPayload {
   jti: string;
 }
 
+// Étape 7 — payload du token de challenge 2FA, signé avec JWT_2FA_CHALLENGE_SECRET (jamais
+// JWT_ACCESS_SECRET : voir env.validation.ts). `purpose` est une garde explicite en plus du secret
+// distinct — défense en profondeur, vérifiée par TwoFactorService avant tout usage.
+export interface TwoFactorChallengePayload {
+  sub: string;
+  purpose: "2fa-challenge";
+}
+
+export type LoginResult = { accessToken: string; refreshToken: string } | { twoFactorRequired: true; challengeToken: string };
+
 // Payload d'accès minimal (pas de permissions embarquées, voir docs/architecture/phase-3-auth-rbac.md
 // — pas de Redis, un payload figé deviendrait périmé dès qu'un rôle change). Le refresh token est
 // lui-même un JWT signé avec un secret distinct, mais rendu révocable via une ligne RefreshToken
@@ -47,8 +57,11 @@ export class AuthService {
   private get refreshExpiresIn(): string {
     return this.config.get<string>("JWT_REFRESH_EXPIRES_IN")!;
   }
+  private get twoFactorChallengeSecret(): string {
+    return this.config.get<string>("JWT_2FA_CHALLENGE_SECRET")!;
+  }
 
-  async login(email: string, password: string, ipAddress: string | null = null) {
+  async login(email: string, password: string, ipAddress: string | null = null): Promise<LoginResult> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.isActive) {
       this.audit.record({
@@ -95,6 +108,18 @@ export class AuthService {
       outcome: "SUCCESS",
       ipAddress,
     });
+
+    if (user.twoFactorEnabled) {
+      // Mot de passe correct mais pas encore une session complète : le client doit maintenant
+      // prouver la possession du second facteur via POST /auth/2fa/verify (voir
+      // two-factor.service.ts) avant qu'un vrai access/refresh token ne soit émis.
+      const challengeToken = await this.jwt.signAsync(
+        { sub: user.id, purpose: "2fa-challenge" } satisfies TwoFactorChallengePayload,
+        { secret: this.twoFactorChallengeSecret, expiresIn: "5m" }
+      );
+      return { twoFactorRequired: true, challengeToken };
+    }
+
     return this.issueTokens(user.id, user.organizationId, user.hotelId);
   }
 
@@ -193,7 +218,10 @@ export class AuthService {
     };
   }
 
-  private async issueTokens(userId: string, organizationId: string, hotelId: string | null) {
+  // Public : appelé aussi par TwoFactorService après vérification réussie du 2e facteur (voir
+  // two-factor.service.ts, verifyChallenge()) — un vrai access/refresh token n'est émis qu'après
+  // cette étape quand 2FA est activé, jamais directement depuis login().
+  async issueTokens(userId: string, organizationId: string, hotelId: string | null) {
     const accessPayload: AccessTokenPayload = { sub: userId, organizationId, hotelId };
     const accessToken = await this.jwt.signAsync(accessPayload, {
       secret: this.accessSecret,
