@@ -19,6 +19,7 @@ import { BudgetsModule } from "./modules/budgets/budgets.module";
 import { CashAccountsModule } from "./modules/cash-accounts/cash-accounts.module";
 import { CostCentersModule } from "./modules/cost-centers/cost-centers.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
+import { DocumentsModule } from "./modules/documents/documents.module";
 import { EmployeesModule } from "./modules/employees/employees.module";
 import { ExpensesModule } from "./modules/expenses/expenses.module";
 import { FinanceSummaryModule } from "./modules/finance-summary/finance-summary.module";
@@ -95,6 +96,7 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     WarehousesModule,
     StockMovementsModule,
     ProductsModule,
+    DocumentsModule,
     AuthModule,
   ],
   providers: [

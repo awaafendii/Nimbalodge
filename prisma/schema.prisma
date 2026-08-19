@@ -269,6 +269,7 @@ model User {
   maintenanceInterventionsPerformed                                                 MaintenanceIntervention[] @relation("MaintenanceInterventionPerformer")
   notificationsReceived                                                              Notification[]           @relation("NotificationRecipient")
   stockMovementsCreated                                                               StockMovement[]          @relation("StockMovementCreator")
+  documentsUploaded                                                                   Document[]
 
   @@index([organizationId])
   @@index([hotelId])
@@ -1777,4 +1778,37 @@ model IdempotencyKey {
 
   @@id([userId, key])
   @@index([createdAt])
+}
+
+// ============================= DOCUMENTS (Étape 7) =============================
+
+/// Association polymorphe volontaire : `resourceType`/`resourceId` (même pattern qu'AuditLog)
+/// plutôt qu'une FK dédiée par type de ressource — évite une migration touchant Expense/Revenue/
+/// Invoice/Employee/Supplier à chaque nouveau type de document supporté. `resourceType` validé par
+/// une liste blanche côté service (DocumentsService.RESOURCE_TYPE_CONFIG), jamais une valeur libre.
+/// `storageKey` (jamais exposé au client, jamais dérivé du nom de fichier original) et `filename`
+/// (nom original, purement informatif) sont volontairement distincts — voir DocumentsService pour
+/// la génération du storageKey et l'assainissement du filename. `deletedAt` : suppression LOGIQUE
+/// en base (garde une trace auditable qu'un document a existé et a été supprimé), mais le contenu
+/// physique est réellement effacé du stockage au moment de la suppression (StorageProvider.delete)
+/// — pas une simple corbeille, une vraie suppression des octets.
+model Document {
+  id             String    @id @default(cuid())
+  filename       String
+  storageKey     String    @unique
+  mimeType       String
+  sizeBytes      Int
+  resourceType   String
+  resourceId     String
+  hotelId        String
+  organizationId String
+  uploadedById   String
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([resourceType, resourceId])
+  @@index([hotelId])
+  @@index([organizationId])
 }

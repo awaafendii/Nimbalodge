@@ -10,3 +10,8 @@ dist-ssr/
 .env.*
 !.env.example
 !.env.test.example
+
+# Étape 7 — fichiers uploadés (LocalDiskStorageProvider, dev uniquement) : jamais commités.
+# Chemin relatif à process.cwd() du process API (la racine du repo dans tous les scripts npm de ce
+# projet — dev/build/e2e lancent tous node/jest depuis la racine, pas depuis apps/api/).
+/uploads-data/
