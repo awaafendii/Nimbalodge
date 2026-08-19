@@ -31,6 +31,14 @@ export interface TwoFactorChallengePayload {
 
 export type LoginResult = { accessToken: string; refreshToken: string } | { twoFactorRequired: true; challengeToken: string };
 
+// Étape 7 — métadonnées de session (RefreshToken.userAgent/ipAddress), purement informatives pour
+// "mes sessions actives" (voir sessions.service.ts) — jamais utilisées pour une décision de
+// sécurité. userAgent tronqué à 255 caractères avant écriture.
+export interface SessionMeta {
+  userAgent: string | null;
+  ipAddress: string | null;
+}
+
 // Payload d'accès minimal (pas de permissions embarquées, voir docs/architecture/phase-3-auth-rbac.md
 // — pas de Redis, un payload figé deviendrait périmé dès qu'un rôle change). Le refresh token est
 // lui-même un JWT signé avec un secret distinct, mais rendu révocable via une ligne RefreshToken
@@ -61,7 +69,8 @@ export class AuthService {
     return this.config.get<string>("JWT_2FA_CHALLENGE_SECRET")!;
   }
 
-  async login(email: string, password: string, ipAddress: string | null = null): Promise<LoginResult> {
+  async login(email: string, password: string, meta: SessionMeta = { userAgent: null, ipAddress: null }): Promise<LoginResult> {
+    const ipAddress = meta.ipAddress;
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.isActive) {
       this.audit.record({
@@ -120,10 +129,10 @@ export class AuthService {
       return { twoFactorRequired: true, challengeToken };
     }
 
-    return this.issueTokens(user.id, user.organizationId, user.hotelId);
+    return this.issueTokens(user.id, user.organizationId, user.hotelId, meta);
   }
 
-  async refreshTokens(rawToken: string) {
+  async refreshTokens(rawToken: string, meta: SessionMeta = { userAgent: null, ipAddress: null }) {
     let payload: RefreshTokenPayload;
     try {
       payload = await this.jwt.verifyAsync<RefreshTokenPayload>(rawToken, { secret: this.refreshSecret });
@@ -137,16 +146,21 @@ export class AuthService {
     }
 
     if (stored.revokedAt) {
-      // Réutilisation d'un refresh token déjà tourné (§ pattern OAuth2 "refresh token reuse
-      // detection") : dans une chaîne de rotation normale, seul le tout dernier token émis est
-      // valide — en voir un ancien resurgir signale un vol probable (copie interceptée, rejouée
-      // en parallèle du légitime). Révoque immédiatement TOUTES les sessions actives de
-      // l'utilisateur plutôt que de se contenter de rejeter ce seul token, pour ne pas laisser un
-      // jeton volé actif ailleurs pendant que la victime continue sa rotation normale.
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: stored.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      // Réutilisation d'un refresh token déjà révoqué — pas systématiquement un vol : seule une
+      // révocation par ROTATION ("rotated") est un vrai signal de compromission (dans une chaîne
+      // de rotation normale, seul le tout dernier token émis est valide ; en voir un ancien
+      // resurgir signale une copie interceptée, rejouée en parallèle du légitime). Une révocation
+      // volontaire ("logout"/"user-revoked"/"password-reset") n'en est pas un : le device qui
+      // présente encore ce token ne sait simplement pas encore qu'il a été déconnecté (course
+      // bénigne, pas une attaque) — déclencher la cascade dans ce cas déconnecterait à tort toutes
+      // les AUTRES sessions actives de l'utilisateur, découvert en testant en direct le
+      // "sign out this device" (voir schema.prisma, RefreshToken.revokedReason).
+      if (stored.revokedReason === "rotated") {
+        await this.prisma.refreshToken.updateMany({
+          where: { userId: stored.userId, revokedAt: null },
+          data: { revokedAt: new Date(), revokedReason: "reuse-detected" },
+        });
+      }
       throw new UnauthorizedException("Refresh token invalide ou révoqué");
     }
 
@@ -156,9 +170,12 @@ export class AuthService {
     }
 
     // Rotation : l'ancien refresh token est révoqué dès qu'il sert, même en cas de réutilisation.
-    await this.prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date(), revokedReason: "rotated" },
+    });
 
-    return this.issueTokens(user.id, user.organizationId, user.hotelId);
+    return this.issueTokens(user.id, user.organizationId, user.hotelId, meta);
   }
 
   async logout(rawToken: string, ipAddress: string | null = null): Promise<{ success: true }> {
@@ -175,7 +192,7 @@ export class AuthService {
     }
     await this.prisma.refreshToken.updateMany({
       where: { id: payload.jti, revokedAt: null },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), revokedReason: "logout" },
     });
 
     const user = await this.prisma.user.findUnique({
@@ -221,7 +238,12 @@ export class AuthService {
   // Public : appelé aussi par TwoFactorService après vérification réussie du 2e facteur (voir
   // two-factor.service.ts, verifyChallenge()) — un vrai access/refresh token n'est émis qu'après
   // cette étape quand 2FA est activé, jamais directement depuis login().
-  async issueTokens(userId: string, organizationId: string, hotelId: string | null) {
+  async issueTokens(
+    userId: string,
+    organizationId: string,
+    hotelId: string | null,
+    meta: SessionMeta = { userAgent: null, ipAddress: null }
+  ) {
     const accessPayload: AccessTokenPayload = { sub: userId, organizationId, hotelId };
     const accessToken = await this.jwt.signAsync(accessPayload, {
       secret: this.accessSecret,
@@ -244,6 +266,8 @@ export class AuthService {
         userId,
         tokenHash: hashToken(refreshToken),
         expiresAt,
+        userAgent: meta.userAgent?.slice(0, 255) ?? null,
+        ipAddress: meta.ipAddress,
       },
     });
 

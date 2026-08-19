@@ -9,7 +9,7 @@ import * as OTPAuth from "otpauth";
 import { AuditService } from "../../common/audit/audit.service";
 import { hashToken } from "../../common/crypto/hash-token";
 import { PrismaService } from "../../database/prisma.service";
-import { AuthService, type TwoFactorChallengePayload } from "./auth.service";
+import { AuthService, type SessionMeta, type TwoFactorChallengePayload } from "./auth.service";
 
 const RECOVERY_CODE_COUNT = 8;
 const TOTP_ISSUER = "NimbaLodge";
@@ -147,7 +147,8 @@ export class TwoFactorService {
     return { success: true };
   }
 
-  async verifyChallenge(challengeToken: string, code: string, ipAddress: string | null) {
+  async verifyChallenge(challengeToken: string, code: string, meta: SessionMeta) {
+    const ipAddress = meta.ipAddress;
     let payload: TwoFactorChallengePayload;
     try {
       payload = await this.jwt.verifyAsync<TwoFactorChallengePayload>(challengeToken, { secret: this.challengeSecret });
@@ -198,7 +199,7 @@ export class TwoFactorService {
       ipAddress,
     });
 
-    return this.authService.issueTokens(user.id, user.organizationId, user.hotelId);
+    return this.authService.issueTokens(user.id, user.organizationId, user.hotelId, meta);
   }
 
   private async tryConsumeRecoveryCode(userId: string, code: string): Promise<boolean> {

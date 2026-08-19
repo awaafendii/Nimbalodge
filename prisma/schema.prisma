@@ -336,6 +336,16 @@ model RefreshToken {
   revokedAt DateTime?
   createdAt DateTime  @default(now())
 
+  /// Étape 7 — pourquoi ce token a été révoqué : "rotated" (rotation normale, une réutilisation
+  /// signale un vol probable), "reuse-detected" (cascade déjà déclenchée), "logout"/"user-revoked"/
+  /// "password-reset" (action volontaire de l'utilisateur, jamais un signal de vol). Découvert en
+  /// testant en direct (Étape 7, gestion des sessions) : sans cette distinction, révoquer SA PROPRE
+  /// session via /auth/sessions/:id puis présenter ce même refresh token (course bénigne : le
+  /// device n'a pas encore appris qu'il a été déconnecté) déclenchait à tort la cascade "vol
+  /// détecté" d'AuthService.refreshTokens() et déconnectait TOUTES les autres sessions actives de
+  /// l'utilisateur. Seul "rotated" doit déclencher la cascade.
+  revokedReason String?
+
   /// Étape 7 (durcissement Auth) — métadonnées de session, purement informatives (jamais utilisées
   /// pour une décision de sécurité, seulement affichées dans "mes sessions actives"). `userAgent`
   /// tronqué à 255 caractères côté service avant écriture.

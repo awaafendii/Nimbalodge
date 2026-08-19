@@ -85,7 +85,7 @@ export class PasswordResetService {
     // fuité, les sessions ouvertes avec lui ne doivent pas rester valides après la réinitialisation.
     await this.prisma.refreshToken.updateMany({
       where: { userId: user.id, revokedAt: null },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), revokedReason: "password-reset" },
     });
 
     this.audit.record({

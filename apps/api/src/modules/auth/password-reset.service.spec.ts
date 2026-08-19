@@ -98,7 +98,7 @@ describe("PasswordResetService", () => {
       });
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: activeUser.id, revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
+        data: { revokedAt: expect.any(Date), revokedReason: "password-reset" },
       });
       expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ outcome: "SUCCESS", action: "password-reset-confirm" }));
     });

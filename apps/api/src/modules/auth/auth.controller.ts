@@ -27,15 +27,21 @@ export class AuthController {
   @Post("login")
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto, @Req() request: Request) {
-    return this.authService.login(dto.email, dto.password, request.ip ?? null);
+    return this.authService.login(dto.email, dto.password, {
+      userAgent: request.headers["user-agent"] ?? null,
+      ipAddress: request.ip ?? null,
+    });
   }
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refreshTokens(dto.refreshToken);
+  refresh(@Body() dto: RefreshTokenDto, @Req() request: Request) {
+    return this.authService.refreshTokens(dto.refreshToken, {
+      userAgent: request.headers["user-agent"] ?? null,
+      ipAddress: request.ip ?? null,
+    });
   }
 
   @Public()

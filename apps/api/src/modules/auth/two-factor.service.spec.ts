@@ -104,14 +104,14 @@ describe("TwoFactorService", () => {
       const { service, jwt } = buildService();
       jwt.verifyAsync.mockRejectedValue(new Error("invalid signature"));
 
-      await expect(service.verifyChallenge("garbage", "123456", null)).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyChallenge("garbage", "123456", { userAgent: null, ipAddress: null })).rejects.toThrow(UnauthorizedException);
     });
 
     it("rejette un token dont le purpose n'est pas 2fa-challenge", async () => {
       const { service, jwt } = buildService();
       jwt.verifyAsync.mockResolvedValue({ sub: baseUser.id, purpose: "something-else" });
 
-      await expect(service.verifyChallenge("token", "123456", null)).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyChallenge("token", "123456", { userAgent: null, ipAddress: null })).rejects.toThrow(UnauthorizedException);
     });
 
     it("émet de vrais tokens pour un code TOTP valide", async () => {
@@ -122,10 +122,13 @@ describe("TwoFactorService", () => {
       prisma.user.findUnique.mockResolvedValue(user);
       const totp = new OTPAuth.TOTP({ issuer: "NimbaLodge", label: user.email, digits: 6, period: 30, secret });
 
-      const result = await service.verifyChallenge("token", totp.generate(), null);
+      const result = await service.verifyChallenge("token", totp.generate(), { userAgent: null, ipAddress: null });
 
       expect(result).toEqual({ accessToken: "at", refreshToken: "rt" });
-      expect(authService.issueTokens).toHaveBeenCalledWith(user.id, user.organizationId, user.hotelId);
+      expect(authService.issueTokens).toHaveBeenCalledWith(user.id, user.organizationId, user.hotelId, {
+        userAgent: null,
+        ipAddress: null,
+      });
     });
 
     it("accepte un code de récupération valide et le marque comme utilisé (usage unique)", async () => {
@@ -136,7 +139,7 @@ describe("TwoFactorService", () => {
       prisma.user.findUnique.mockResolvedValue(user);
       prisma.twoFactorRecoveryCode.findFirst.mockResolvedValue({ id: "code-1", userId: user.id, usedAt: null });
 
-      const result = await service.verifyChallenge("token", "ABCDEF1234", null);
+      const result = await service.verifyChallenge("token", "ABCDEF1234", { userAgent: null, ipAddress: null });
 
       expect(result).toEqual({ accessToken: "at", refreshToken: "rt" });
       expect(prisma.twoFactorRecoveryCode.update).toHaveBeenCalledWith({
@@ -154,7 +157,7 @@ describe("TwoFactorService", () => {
       prisma.user.findUnique.mockResolvedValue(user);
       prisma.twoFactorRecoveryCode.findFirst.mockResolvedValue(null);
 
-      await expect(service.verifyChallenge("token", "000000", null)).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyChallenge("token", "000000", { userAgent: null, ipAddress: null })).rejects.toThrow(UnauthorizedException);
     });
   });
 });

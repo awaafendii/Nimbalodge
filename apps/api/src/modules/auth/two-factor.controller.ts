@@ -45,6 +45,9 @@ export class TwoFactorController {
   @Post("verify")
   @HttpCode(HttpStatus.OK)
   verify(@Body() dto: VerifyTwoFactorDto, @Req() request: Request) {
-    return this.twoFactorService.verifyChallenge(dto.challengeToken, dto.code, request.ip ?? null);
+    return this.twoFactorService.verifyChallenge(dto.challengeToken, dto.code, {
+      userAgent: request.headers["user-agent"] ?? null,
+      ipAddress: request.ip ?? null,
+    });
   }
 }

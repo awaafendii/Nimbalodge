@@ -11,6 +11,8 @@ import { AuthService } from "./auth.service";
 import { JwtAccessStrategy } from "./jwt-access.strategy";
 import { PasswordResetController } from "./password-reset.controller";
 import { PasswordResetService } from "./password-reset.service";
+import { SessionsController } from "./sessions.controller";
+import { SessionsService } from "./sessions.service";
 import { TwoFactorController } from "./two-factor.controller";
 import { TwoFactorService } from "./two-factor.service";
 
@@ -19,11 +21,12 @@ import { TwoFactorService } from "./two-factor.service";
 // chaque appel — plus simple que deux instances de JwtService nommées séparément.
 @Module({
   imports: [PassportModule, JwtModule.register({}), PermissionsModule],
-  controllers: [AuthController, PasswordResetController, TwoFactorController],
+  controllers: [AuthController, PasswordResetController, TwoFactorController, SessionsController],
   providers: [
     AuthService,
     PasswordResetService,
     TwoFactorService,
+    SessionsService,
     JwtAccessStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
