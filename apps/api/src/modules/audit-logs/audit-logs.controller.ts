@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Param, Query } from "@nestjs/common";
 
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../../common/decorators/require-permissions.decorator";
@@ -14,5 +14,11 @@ export class AuditLogsController {
   @RequirePermissions("audit-logs.view")
   list(@Query() query: ListAuditLogsQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.auditLogsService.list(query, user);
+  }
+
+  @Get(":id")
+  @RequirePermissions("audit-logs.view")
+  findOne(@Param("id") id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.auditLogsService.findOne(id, user);
   }
 }

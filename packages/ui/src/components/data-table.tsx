@@ -16,6 +16,24 @@ export interface DataTableColumn<T> {
   className?: string;
 }
 
+// Opt-in : quand fourni, `data` est déjà la page courante renvoyée par le serveur (pas le jeu de
+// données complet) — le tri/la recherche/la pagination client sont désactivés au profit de ces
+// callbacks. Ajouté pour AuditLog (seule ressource du projet dont le volume suit les requêtes HTTP,
+// pas l'activité humaine — voir audit-logs.service.ts) sans toucher au mode client par défaut des
+// ~14 autres écrans.
+export interface DataTableServerPagination {
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+  totalCount: number;
+}
+
+export interface DataTableServerSearch {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   data: T[];
@@ -38,15 +56,22 @@ export interface DataTableProps<T> {
   // repli générique automatique (une carte par ligne, une paire label/valeur par colonne), qui
   // fonctionne pour tous les appelants sans aucun changement de leur part.
   renderMobileCard?: (row: T) => React.ReactNode;
+  // Présent = mode serveur (voir DataTableServerPagination ci-dessus). Mutuellement substitué à la
+  // pagination client interne, jamais combiné avec elle.
+  serverPagination?: DataTableServerPagination;
+  // Présent = la barre de recherche pilote un state externe (requête serveur) au lieu du filtrage
+  // local par `searchableText`. Les deux props peuvent coexister sur le papier mais n'ont de sens
+  // qu'exclusivement l'une de l'autre — `serverSearch`, quand fourni, prend le pas.
+  serverSearch?: DataTableServerSearch;
 }
 
 type SortDirection = "asc" | "desc" | null;
 
-// Tri/recherche/pagination entièrement côté client — le backend n'expose aucune pagination
-// serveur à ce jour (voir docs/architecture/audit-master-prompt-v2.md section Q : chaque liste
-// charge l'intégralité des lignes). Ce composant est le seul endroit où cette logique vit ; le
-// jour où une pagination serveur existera, seul ce fichier change, pas les ~14 écrans qui
-// l'utilisent.
+// Tri/recherche/pagination côté client par défaut — le backend n'expose de pagination serveur que
+// pour AuditLog à ce jour (voir docs/architecture/audit-master-prompt-v2.md section Q : les ~14
+// autres écrans chargent toujours l'intégralité de leurs lignes). `serverPagination`/`serverSearch`
+// (Étape 7, Priority 7) activent un mode opt-in où `data` est déjà la page courante — reste le seul
+// endroit où cette bascule vit, aucun des ~14 autres écrans n'a besoin de changer.
 export function DataTable<T>({
   columns,
   data,
@@ -61,6 +86,8 @@ export function DataTable<T>({
   onRowClick,
   emptyMessage = "Aucun résultat pour ces critères.",
   renderMobileCard,
+  serverPagination,
+  serverSearch,
 }: DataTableProps<T>) {
   const [search, setSearch] = React.useState("");
   const [sortColumnId, setSortColumnId] = React.useState<string | null>(null);
@@ -68,17 +95,17 @@ export function DataTable<T>({
   const [page, setPage] = React.useState(1);
 
   const filtered = React.useMemo(() => {
-    if (!searchableText || !search.trim()) {
+    if (serverSearch || !searchableText || !search.trim()) {
       return data;
     }
     const needle = search.trim().toLowerCase();
     return data.filter((row) => searchableText(row).toLowerCase().includes(needle));
-  }, [data, search, searchableText]);
+  }, [data, search, searchableText, serverSearch]);
 
   const sortColumn = columns.find((column) => column.id === sortColumnId);
 
   const sorted = React.useMemo(() => {
-    if (!sortColumn?.sortValue || !sortDirection) {
+    if (serverPagination || !sortColumn?.sortValue || !sortDirection) {
       return filtered;
     }
     const sortValue = sortColumn.sortValue;
@@ -89,15 +116,18 @@ export function DataTable<T>({
       if (left > right) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
-  }, [filtered, sortColumn, sortDirection]);
+  }, [filtered, serverPagination, sortColumn, sortDirection]);
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const clampedPage = Math.min(page, pageCount);
-  const pageRows = sorted.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
+  // Mode serveur : `data` est déjà la page courante, pas de découpage local (voir
+  // DataTableServerPagination ci-dessus).
+  const pageCount = serverPagination ? serverPagination.pageCount : Math.max(1, Math.ceil(sorted.length / pageSize));
+  const clampedPage = serverPagination ? serverPagination.page : Math.min(page, pageCount);
+  const pageRows = serverPagination ? sorted : sorted.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
+  const handlePageChange = serverPagination ? serverPagination.onPageChange : setPage;
 
   React.useEffect(() => {
-    setPage(1);
-  }, [search]);
+    if (!serverPagination) setPage(1);
+  }, [search, serverPagination]);
 
   function toggleSort(columnId: string) {
     if (sortColumnId !== columnId) {
@@ -140,9 +170,19 @@ export function DataTable<T>({
 
   return (
     <div className="flex flex-col gap-3">
-      {searchableText || toolbar ? (
+      {serverSearch || searchableText || toolbar ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {searchableText ? (
+          {serverSearch ? (
+            <div className="relative w-full max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={serverSearch.value}
+                onChange={(event) => serverSearch.onChange(event.target.value)}
+                placeholder={serverSearch.placeholder ?? searchPlaceholder}
+                className="pl-8"
+              />
+            </div>
+          ) : searchableText ? (
             <div className="relative w-full max-w-xs">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -299,7 +339,7 @@ export function DataTable<T>({
         )}
       </div>
 
-      <Pagination page={clampedPage} pageCount={pageCount} onPageChange={setPage} />
+      <Pagination page={clampedPage} pageCount={pageCount} onPageChange={handlePageChange} />
     </div>
   );
 }

@@ -50,7 +50,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Système",
     items: [
       { to: "/reports", label: "Rapports", subtitle: "Rapports paramétrables, export", icon: Icons.IconReport, permission: "reports.financial.view" },
-      { to: "/notifications", label: "Notifications", subtitle: "Alertes, échéances, audit", icon: Icons.IconBell, permission: "notifications.view" },
+      { to: "/notifications", label: "Notifications", subtitle: "Alertes, échéances", icon: Icons.IconBell, permission: "notifications.view" },
+      { to: "/audit-logs", label: "Audit", subtitle: "Journal des actions, avant/après", icon: Icons.IconShield, permission: "audit-logs.view" },
       { to: "/settings", label: "Paramètres", subtitle: "Organisation, hôtel, départements", icon: Icons.IconGear, permission: "departments.view" },
     ],
   },

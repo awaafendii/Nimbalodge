@@ -15,6 +15,7 @@ import InventoryPage from "../features/inventory/index.js";
 import HousekeepingPage from "../features/housekeeping/index.js";
 import MaintenancePage from "../features/maintenance/index.js";
 import ReportsPage from "../features/reports/index.js";
+import AuditLogsPage from "../features/audit-logs/index.js";
 import NotificationsPage from "../features/notifications/index.js";
 import SettingsPage from "../features/settings/index.js";
 
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
           { path: "/maintenance", element: <MaintenancePage /> },
           { path: "/reports", element: <ReportsPage /> },
           { path: "/notifications", element: <NotificationsPage /> },
+          { path: "/audit-logs", element: <AuditLogsPage /> },
           { path: "/settings", element: <SettingsPage /> },
           { path: "*", element: <Navigate to="/dashboard" replace /> },
         ],

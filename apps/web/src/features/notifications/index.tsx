@@ -1,23 +1,8 @@
 import { useState } from "react";
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Checkbox,
-  DataTable,
-  Input,
-  Label,
-  StatusBadge,
-  type DataTableColumn,
-} from "@nimbalodge/ui";
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Checkbox, DataTable, type DataTableColumn } from "@nimbalodge/ui";
 
 import { QueryState } from "../../components/common/query-state.js";
-import { useAuditLogs } from "../../hooks/use-audit-logs.js";
 import { useMarkAllNotificationsRead, useMarkNotificationRead, useNotifications } from "../../hooks/use-notifications.js";
-import type { AuditLog } from "../../services/audit-logs.js";
 import type { Notification } from "../../services/notifications.js";
 
 function formatDateTime(iso: string): string {
@@ -25,14 +10,13 @@ function formatDateTime(iso: string): string {
 }
 
 // Référence de branchement (Étape 4, module 11/11 — dernier de la liste Master Prompt §54) :
-// "Alertes, échéances, audit" (subtitle nav-config.tsx) — Notifications (par utilisateur, jamais
-// scopées hôtel/organisation comme les autres ressources, voir NotificationsService.list()) et
-// Audit (lecture seule, écrit par AuditInterceptor global depuis la Phase 2) sur le même écran.
+// "Alertes, échéances, audit" (subtitle nav-config.tsx). Le journal d'audit a été déplacé sur son
+// propre écran (Étape 7, Priority 7 — voir features/audit-logs) une fois la pagination serveur et
+// les filtres devenus trop riches pour une simple carte partagée avec Notifications.
 export default function NotificationsPage() {
   return (
     <div className="flex flex-col gap-5">
       <NotificationsCard />
-      <AuditLogsCard />
     </div>
   );
 }
@@ -125,103 +109,6 @@ function NotificationsCard() {
                 data={data}
                 getRowId={(notification) => notification.id}
                 emptyMessage="Aucune notification ne correspond à ces critères."
-              />
-            );
-          }}
-        </QueryState>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AuditLogsCard() {
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [resourceType, setResourceType] = useState("");
-
-  const auditLogs = useAuditLogs({
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-    resourceType: resourceType || undefined,
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Journal d'audit</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="audit-date-from">Du (optionnel)</Label>
-            <Input id="audit-date-from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="audit-date-to">Au (optionnel)</Label>
-            <Input id="audit-date-to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="audit-resource-type">Type de ressource (optionnel)</Label>
-            <Input
-              id="audit-resource-type"
-              placeholder="expense, reservation…"
-              value={resourceType}
-              onChange={(e) => setResourceType(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <QueryState
-          isLoading={auditLogs.isLoading}
-          error={auditLogs.error}
-          data={auditLogs.data}
-          onRetry={() => auditLogs.refetch()}
-          isEmpty={(data) => data.length === 0}
-          emptyTitle="Aucune entrée d'audit"
-          emptyDescription="Ajustez les filtres ci-dessus ou vérifiez qu'une action mutante a déjà été effectuée."
-        >
-          {(data) => {
-            const columns: DataTableColumn<AuditLog>[] = [
-              {
-                id: "date",
-                header: "Date",
-                sortValue: (log) => log.createdAt,
-                cell: (log) => formatDateTime(log.createdAt),
-              },
-              {
-                id: "action",
-                header: "Action",
-                cell: (log) => (
-                  <span className="font-mono text-xs">
-                    {log.method} {log.path}
-                  </span>
-                ),
-              },
-              {
-                id: "resourceType",
-                header: "Ressource",
-                sortValue: (log) => log.resourceType ?? "",
-                cell: (log) => log.resourceType ?? "—",
-              },
-              {
-                id: "outcome",
-                header: "Résultat",
-                cell: (log) => <StatusBadge status={log.outcome} />,
-              },
-              {
-                id: "ip",
-                header: "IP",
-                cell: (log) => log.ipAddress ?? "—",
-              },
-            ];
-            return (
-              <DataTable
-                columns={columns}
-                data={data}
-                getRowId={(log) => log.id}
-                searchableText={(log) => `${log.method} ${log.path} ${log.resourceType ?? ""}`}
-                searchPlaceholder="Rechercher par méthode, chemin, ressource…"
-                emptyMessage="Aucune entrée ne correspond à cette recherche."
               />
             );
           }}

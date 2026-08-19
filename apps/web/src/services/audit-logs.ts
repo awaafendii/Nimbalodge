@@ -4,29 +4,56 @@ export type AuditOutcome = "SUCCESS" | "FAILURE";
 
 export interface AuditLog {
   id: string;
-  organizationId: string;
+  organizationId: string | null;
   hotelId: string | null;
+  departmentId: string | null;
   userId: string | null;
   method: string;
   path: string;
   resourceType: string | null;
+  resourceId: string | null;
+  action: string;
   outcome: AuditOutcome;
   errorMessage: string | null;
   ipAddress: string | null;
   createdAt: string;
 }
 
-export interface AuditLogFilters {
-  dateFrom?: string;
-  dateTo?: string;
-  resourceType?: string;
+export interface AuditLogDetail extends AuditLog {
+  before: unknown;
+  after: unknown;
 }
 
-export function listAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLog[]> {
+export interface AuditLogFilters {
+  search?: string;
+  userId?: string;
+  resourceType?: string;
+  action?: string;
+  departmentId?: string;
+  hotelId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AuditLogPage {
+  items: AuditLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+}
+
+export function listAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLogPage> {
   const params = new URLSearchParams();
-  if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
-  if (filters.dateTo) params.set("dateTo", filters.dateTo);
-  if (filters.resourceType) params.set("resourceType", filters.resourceType);
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
   const query = params.toString();
-  return apiClient.get<AuditLog[]>(`/audit-logs${query ? `?${query}` : ""}`);
+  return apiClient.get<AuditLogPage>(`/audit-logs${query ? `?${query}` : ""}`);
+}
+
+export function getAuditLog(id: string): Promise<AuditLogDetail> {
+  return apiClient.get<AuditLogDetail>(`/audit-logs/${id}`);
 }
