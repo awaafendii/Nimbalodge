@@ -39,6 +39,7 @@ jobs:
       CORS_ORIGIN: http://localhost:5174
       JWT_ACCESS_SECRET: ci-access-secret-do-not-use-outside-automated-tests
       JWT_REFRESH_SECRET: ci-refresh-secret-do-not-use-outside-automated-tests
+      JWT_2FA_CHALLENGE_SECRET: ci-2fa-challenge-secret-do-not-use-outside-automated-tests
       JWT_ACCESS_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       API_PORT: 4001
@@ -73,6 +74,9 @@ jobs:
 
       - name: Build web
         run: npm run build:web
+
+      - name: API unit tests
+        run: npm run test:api:unit
 
       - name: API e2e tests
         run: npx jest --config apps/api/test/jest-e2e.json --runInBand
