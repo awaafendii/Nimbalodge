@@ -86,6 +86,21 @@ Une fois les deux services au vert (`Live`) : ouvre l'URL de `nimbalodge-web`, c
 (aucune recette/dépense) et Paramètres proposera **"Créer un hôtel"** — c'est le point de départ
 réel, pas une régression : configure ton premier hôtel toi-même depuis là.
 
+## Limites connues avant une première mise en production réelle
+
+Voir `docs/security/overview.md` section "Risques résiduels" pour le détail technique — résumé
+opérationnel ici :
+
+- **Documents uploadés (factures, reçus, justificatifs) perdus au redémarrage** : le stockage est
+  actuellement local sur disque (`LocalDiskStorageProvider`), et le système de fichiers Render est
+  éphémère. Tout document uploadé disparaît au prochain déploiement/redémarrage du service
+  `nimbalodge-api`. Ne pas exposer ce déploiement à de vrais utilisateurs qui compteraient sur la
+  persistance de leurs documents tant qu'un `StorageProvider` cloud (S3/R2/...) n'est pas branché.
+- **Réinitialisation de mot de passe non fonctionnelle pour de vrais utilisateurs** : aucun
+  fournisseur d'email n'est branché — le lien de reset n'est écrit que dans les logs serveur
+  (visibles dans le dashboard Render → service `nimbalodge-api` → **Logs**), jamais envoyé par
+  email. À corriger avant tout accès public.
+
 ## Ce qui reste hors de portée de ce déploiement
 
 - **Vercel n'a jamais été utilisé** — abandonné après vérification : Vercel ne fait pas tourner de
