@@ -31,7 +31,8 @@
     "build:bootstrap": "tsc --project prisma/tsconfig.json",
     "bootstrap:production:compiled": "node prisma/dist/bootstrap-production.js",
     "db:test:setup": "dotenv -e .env.test -- node scripts/setup-test-db.js",
-    "test:api:e2e": "dotenv -e .env.test -- jest --config apps/api/test/jest-e2e.json --runInBand"
+    "test:api:e2e": "dotenv -e .env.test -- jest --config apps/api/test/jest-e2e.json --runInBand",
+    "test:api:unit": "jest --config apps/api/jest-unit.json"
   },
   "prisma": {
     "seed": "ts-node --project prisma/tsconfig.json prisma/seed.ts"

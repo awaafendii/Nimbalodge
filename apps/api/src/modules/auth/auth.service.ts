@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
@@ -6,6 +6,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 
 import { AuditService } from "../../common/audit/audit.service";
+import { hashToken } from "../../common/crypto/hash-token";
 import { PrismaService } from "../../database/prisma.service";
 import { PermissionsService } from "../permissions/permissions.service";
 
@@ -18,10 +19,6 @@ interface AccessTokenPayload {
 interface RefreshTokenPayload {
   sub: string;
   jti: string;
-}
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
 }
 
 // Payload d'accès minimal (pas de permissions embarquées, voir docs/architecture/phase-3-auth-rbac.md

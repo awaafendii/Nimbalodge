@@ -9,15 +9,18 @@ import { PermissionsModule } from "../permissions/permissions.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtAccessStrategy } from "./jwt-access.strategy";
+import { PasswordResetController } from "./password-reset.controller";
+import { PasswordResetService } from "./password-reset.service";
 
 // JwtModule.register({}) sans secret par défaut : AuthService signe/vérifie access et refresh
 // avec deux secrets distincts (JWT_ACCESS_SECRET / JWT_REFRESH_SECRET) passés explicitement à
 // chaque appel — plus simple que deux instances de JwtService nommées séparément.
 @Module({
   imports: [PassportModule, JwtModule.register({}), PermissionsModule],
-  controllers: [AuthController],
+  controllers: [AuthController, PasswordResetController],
   providers: [
     AuthService,
+    PasswordResetService,
     JwtAccessStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },

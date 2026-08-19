@@ -237,6 +237,8 @@ model User {
   hotel                   Hotel?               @relation(fields: [hotelId], references: [id], onDelete: SetNull)
   roles                    UserRole[]
   refreshTokens             RefreshToken[]
+  passwordResetTokens        PasswordResetToken[]
+  twoFactorRecoveryCodes      TwoFactorRecoveryCode[]
   departments                UserDepartment[]
   managedDepartments           Department[]      @relation("DepartmentManager")
   managedCashAccounts            CashAccount[]     @relation("CashAccountManager")
@@ -332,6 +334,48 @@ model RefreshToken {
   tokenHash String
   expiresAt DateTime
   revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  /// Étape 7 (durcissement Auth) — métadonnées de session, purement informatives (jamais utilisées
+  /// pour une décision de sécurité, seulement affichées dans "mes sessions actives"). `userAgent`
+  /// tronqué à 255 caractères côté service avant écriture.
+  userAgent String?
+  ipAddress String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Étape 7 (durcissement Auth) — réinitialisation de mot de passe. Même pattern que RefreshToken :
+/// seul le hash SHA-256 du token brut est stocké (jamais le token lui-même), `usedAt` fait office
+/// d'invalidation à usage unique (un `findFirst` où `usedAt IS NULL AND expiresAt > now()` avant
+/// tout usage). Expiration courte (30 min, en dur dans PasswordResetService — pas un paramètre
+/// produit) : une fenêtre volontairement plus courte qu'un refresh token, un lien de reset non
+/// utilisé ne doit pas rester exploitable des jours durant.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+/// Étape 7 (durcissement Auth) — codes de récupération 2FA (perte de l'appareil TOTP). Générés en
+/// lot au moment de l'activation (voir TwoFactorService), affichés une seule fois au client,
+/// jamais stockés en clair (`codeHash`, même famille de hash que RefreshToken/PasswordResetToken).
+/// Chaque code est à usage unique (`usedAt`).
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
