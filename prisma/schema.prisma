@@ -1635,6 +1635,39 @@ model AuditLog {
   @@index([createdAt])
   @@index([resourceType, resourceId])
   @@index([action])
+  // Nimba AI (détection d'anomalies Audit Trail) — recherche "rafale d'échecs par utilisateur/IP
+  // sur une fenêtre glissante" (outcome=FAILURE + createdAt récent). Sans cet index composite, la
+  // requête retombe sur l'index simple `action` ou `createdAt`, correct à ce volume mais moins
+  // efficace pour ce pattern d'accès précis.
+  @@index([outcome, createdAt])
+}
+
+// ============================= NIMBA AI =============================
+
+/// Suivi d'usage/coût des appels au fournisseur LLM — distinct d'AuditLog (qui répond à "qui a
+/// demandé quoi", sécurité/traçabilité) : celui-ci répond à "combien ça coûte, combien de
+/// requêtes" (métering, quotas et facturation futurs). Écrit après CHAQUE tentative d'appel LLM,
+/// y compris les refus RBAC (status="DENIED") et les échecs fournisseur (status="FAILURE") — pas
+/// seulement les succès, sinon un futur quota sous-évaluerait l'usage réel.
+model AiUsageLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  hotelId        String?
+  userId         String
+  provider       String
+  model          String
+  requestType    String
+  inputTokens    Int?
+  outputTokens   Int?
+  latencyMs      Int
+  status         String
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([hotelId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // ============================= INVENTAIRE (Phase 13) =============================

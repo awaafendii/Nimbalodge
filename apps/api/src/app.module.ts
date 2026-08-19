@@ -35,6 +35,7 @@ import { InvoicesModule } from "./modules/invoices/invoices.module";
 import { LeaveRequestsModule } from "./modules/leave-requests/leave-requests.module";
 import { MaintenanceInterventionsModule } from "./modules/maintenance-interventions/maintenance-interventions.module";
 import { MaintenanceRequestsModule } from "./modules/maintenance-requests/maintenance-requests.module";
+import { NimbaAiModule } from "./modules/nimba-ai/nimba-ai.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { PayslipsModule } from "./modules/payslips/payslips.module";
@@ -103,6 +104,7 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     ProductsModule,
     DocumentsModule,
     AuthModule,
+    NimbaAiModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

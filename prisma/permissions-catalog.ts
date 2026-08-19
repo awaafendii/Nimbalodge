@@ -160,4 +160,10 @@ export const BASE_PERMISSIONS = [
   // ressource organisation/hôtel. Volontairement absente du sous-ensemble HOTEL_ADMIN de seed.ts —
   // seul SUPER_ADMIN doit voir la charge globale du serveur.
   { key: "system-monitoring.view", description: "Voir les métriques de supervision système" },
+  // Nimba AI — porte d'entrée unique de la fonctionnalité (insights/anomalies/assistant), pas une
+  // permission par domaine de données. Chaque "Tool" IA exige en plus la permission réelle qui
+  // gate déjà l'équivalent REST (finance-summary.view, payslips.view, ...) — voir
+  // docs/architecture/nimba-ai.md. Une permission IA séparée par domaine risquerait de diverger de
+  // la permission données réelle et de créer un trou de sécurité.
+  { key: "nimba-ai.use", description: "Utiliser Nimba AI (insights, anomalies, assistant)" },
 ];

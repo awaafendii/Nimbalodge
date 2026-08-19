@@ -230,6 +230,12 @@ async function main() {
     "stock-movements.create",
     "stock-movements.transfer",
     "stock-movements.adjustment",
+    // Nimba AI — donnée renvoyée par les Tools est scopée à l'hôtel/organisation du demandeur
+    // exactement comme le reste (même raisonnement que reports.financial.view/audit-logs.view
+    // ci-dessus : lecture scopée, aucun contrôle org-level à exclure). Contrairement à
+    // system-monitoring.view (donnée plateforme transverse, réservée SUPER_ADMIN), les insights/
+    // anomalies Nimba AI ne concernent que les données de l'hôtel du demandeur.
+    "nimba-ai.use",
   ]);
   await Promise.all(
     permissions
