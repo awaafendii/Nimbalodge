@@ -155,4 +155,9 @@ export const BASE_PERMISSIONS = [
   { key: "stock-movements.create", description: "Enregistrer une entrée/sortie/consommation/perte de stock" },
   { key: "stock-movements.transfer", description: "Transférer du stock entre entrepôts" },
   { key: "stock-movements.adjustment", description: "Ajuster un stock après inventaire physique" },
+  // Étape 7 (durcissement, Priority 6) — métriques opérationnelles du process API (mémoire,
+  // volumétrie/latence des requêtes) : donnée plateforme transverse à tous les tenants, pas une
+  // ressource organisation/hôtel. Volontairement absente du sous-ensemble HOTEL_ADMIN de seed.ts —
+  // seul SUPER_ADMIN doit voir la charge globale du serveur.
+  { key: "system-monitoring.view", description: "Voir les métriques de supervision système" },
 ];

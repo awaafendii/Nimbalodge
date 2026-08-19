@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
@@ -8,6 +8,8 @@ import { AuthzAuditFilter } from "./common/audit/authz-audit.filter";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { AppLoggingModule } from "./common/logging/logging.module";
 import { IdempotencyInterceptor } from "./common/interceptors/idempotency.interceptor";
+import { MetricsMiddleware } from "./common/monitoring/metrics.middleware";
+import { MonitoringModule } from "./common/monitoring/monitoring.module";
 import { validateEnv } from "./config/env.validation";
 import { PrismaModule } from "./database/prisma.module";
 import { ActivitiesModule } from "./modules/activities/activities.module";
@@ -57,6 +59,7 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 100 }]),
     AppLoggingModule,
+    MonitoringModule,
     PrismaModule,
     AuditModule,
     HealthModule,
@@ -114,4 +117,8 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     { provide: APP_FILTER, useClass: AuthzAuditFilter },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MetricsMiddleware).forRoutes("*");
+  }
+}
