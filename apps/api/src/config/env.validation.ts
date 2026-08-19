@@ -1,5 +1,5 @@
 import { Type, plainToInstance } from "class-transformer";
-import { IsIn, IsInt, IsNotEmpty, Max, Min, validateSync } from "class-validator";
+import { IsIn, IsInt, IsNotEmpty, IsOptional, Max, Min, validateSync } from "class-validator";
 
 class EnvironmentVariables {
   @IsIn(["development", "production", "test"])
@@ -37,6 +37,22 @@ class EnvironmentVariables {
 
   @IsNotEmpty()
   JWT_REFRESH_EXPIRES_IN: string = "7d";
+
+  // Nimba AI (Étape 6) — volontairement optionnelles, contrairement aux secrets JWT ci-dessus :
+  // l'app doit toujours démarrer même sans fournisseur LLM configuré (voir GeminiProvider et la
+  // matrice d'état de configuration du plan d'architecture Nimba AI). GEMINI_API_KEY n'est jamais
+  // exposée au frontend, jamais journalisée.
+  @IsOptional()
+  @IsNotEmpty()
+  LLM_PROVIDER?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  GEMINI_API_KEY?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  GEMINI_MODEL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

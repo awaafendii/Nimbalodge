@@ -16,6 +16,10 @@ export class FakeLLMProvider implements LLMProvider {
     this.queue.push(response);
   }
 
+  isConfigured(): boolean {
+    return true;
+  }
+
   async generate(_params: LLMGenerateParams): Promise<LLMResponse> {
     const next = this.queue.shift();
     return next ?? { text: "[réponse simulée FakeLLMProvider]" };

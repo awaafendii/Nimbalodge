@@ -16,6 +16,10 @@ export interface LLMMessage {
   role: LLMMessageRole;
   content: string;
   toolCallId?: string;
+  // Nom du tool/fonction concerné — requis pour un message role:"tool" (le résultat d'un appel de
+  // Tool renvoyé au LLM doit être associé au nom exact du Tool invoqué, ex. Gemini
+  // FunctionResponse.name). Découvert nécessaire en implémentant GeminiProvider (Étape 6).
+  name?: string;
 }
 
 export interface LLMToolCall {
@@ -42,6 +46,11 @@ export interface LLMGenerateParams {
 
 export interface LLMProvider {
   readonly name: string;
+  // false si le fournisseur n'a pas les identifiants nécessaires (ex. GEMINI_API_KEY absente).
+  // L'orchestrateur DOIT vérifier ceci AVANT tout appel à generate() — jamais d'appel réseau
+  // "pour voir", et jamais un crash au démarrage de l'app pour une clé absente (voir la matrice
+  // d'état de configuration du plan d'architecture Nimba AI).
+  isConfigured(): boolean;
   generate(params: LLMGenerateParams): Promise<LLMResponse>;
 }
 
