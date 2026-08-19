@@ -1531,31 +1531,55 @@ enum AuditOutcome {
 /// survivre à la suppression future de l'utilisateur/hôtel/organisation qu'il référence, jamais
 /// être bloqué (`Restrict`) ni vidé (`SetNull`/`Cascade`) par elle.
 ///
+/// Étape 7 (durcissement Audit Trail) — étendu au-delà de method/path/outcome :
+/// - `action` : nom sémantique de l'opération ("create"/"update"/"delete"/"approve"/"pay"/"login"/
+///   ...), dérivé du dernier segment d'URL par AuditInterceptor — voir ce fichier pour la liste des
+///   verbes reconnus. Jamais juste la méthode HTTP brute (un PATCH peut être "submit", "approve" ou
+///   une simple mise à jour de champs selon la route).
+/// - `resourceId` : id de la ressource affectée, capturé depuis `request.params.id` ou le corps de
+///   la réponse — permet de retrouver l'historique complet d'UNE ressource, pas seulement d'un type.
+/// - `departmentId` : capturé quand la ressource affectée porte elle-même un departmentId (avant OU
+///   après snapshot) — peut différer de celui de l'acteur (ex. un HOTEL_ADMIN organisation-wide agit
+///   sur le département d'un autre utilisateur).
+/// - `before`/`after` : snapshots JSON assainis (jamais de mot de passe/token/secret — voir
+///   AuditInterceptor.sanitize()) capturés "lorsque pertinent" (§ requirement) : `after` vient du
+///   corps de réponse (CREATE/UPDATE/transitions) ; `before` d'un select Prisma générique avant
+///   l'exécution du handler, pour toute route mutante portant un `:id` (update classique, mais
+///   aussi les transitions POST /:id/approve etc.) sur une ressource dont le modèle Prisma est
+///   connu (RESOURCE_MODEL_MAP dans l'interceptor). Reste `null` pour CREATE
+///   (rien n'existait avant) ou une ressource non mappée — "lorsque pertinent", pas universel.
 /// Pas de code HTTP exact capturé : `outcome` (SUCCESS/FAILURE) suffit pour un audit trail minimal
 /// — capturer le code précis exigerait de lire `response.statusCode` avant que Nest ne l'ait
 /// réellement fixé (le `tap()` d'un interceptor s'exécute avant l'envoi final de la réponse),
-/// fragile et non demandé au brief. Pas de corps de requête/réponse stocké (évite de journaliser
-/// des données sensibles comme un mot de passe sur `/auth/login`) — juste method/path/acteur/
-/// résultat. Les rejets 401/403 (Guards) n'atteignent jamais l'interceptor (s'exécute après les
-/// Guards dans le cycle de vie Nest) — limite documentée, pas un oubli.
+/// fragile et non demandé au brief. Les rejets 401/403 (Guards, avant l'interceptor dans le cycle de
+/// vie Nest) sont désormais capturés séparément par AuthzAuditFilter (voir ce fichier) — même
+/// modèle, `action` = "access_denied".
 model AuditLog {
   id             String       @id @default(cuid())
   organizationId String?
   hotelId        String?
+  departmentId   String?
   userId         String?
   method         String
   path           String
   resourceType   String?
+  resourceId     String?
+  action         String       @default("unknown")
   outcome        AuditOutcome
   errorMessage   String?
   ipAddress      String?
+  before         Json?
+  after          Json?
 
   createdAt DateTime @default(now())
 
   @@index([organizationId])
   @@index([hotelId])
+  @@index([departmentId])
   @@index([userId])
   @@index([createdAt])
+  @@index([resourceType, resourceId])
+  @@index([action])
 }
 
 // ============================= INVENTAIRE (Phase 13) =============================

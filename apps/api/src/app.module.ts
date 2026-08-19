@@ -1,8 +1,10 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
+import { AuditModule } from "./common/audit/audit.module";
+import { AuthzAuditFilter } from "./common/audit/authz-audit.filter";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { IdempotencyInterceptor } from "./common/interceptors/idempotency.interceptor";
 import { validateEnv } from "./config/env.validation";
@@ -53,6 +55,7 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 100 }]),
     PrismaModule,
+    AuditModule,
     HealthModule,
     PermissionsModule,
     RolesModule,
@@ -102,6 +105,9 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
     // voulu — un replay reste une requête réelle du point de vue de l'audit), tandis que
     // IdempotencyInterceptor court-circuite uniquement l'exécution métier elle-même.
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
+    // Étape 7 — capture les rejets 401/403 de Guard, qui n'atteignent jamais AuditInterceptor
+    // (Guards avant interceptors dans le cycle de vie Nest). Voir authz-audit.filter.ts.
+    { provide: APP_FILTER, useClass: AuthzAuditFilter },
   ],
 })
 export class AppModule {}

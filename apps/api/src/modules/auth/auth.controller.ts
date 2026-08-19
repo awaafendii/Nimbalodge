@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
+import type { Request } from "express";
 
 import { AuthenticatedOnly } from "../../common/decorators/authenticated-only.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -25,8 +26,8 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("login")
   @HttpCode(HttpStatus.OK)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password);
+  login(@Body() dto: LoginDto, @Req() request: Request) {
+    return this.authService.login(dto.email, dto.password, request.ip ?? null);
   }
 
   @Public()
@@ -41,8 +42,8 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("logout")
   @HttpCode(HttpStatus.OK)
-  logout(@Body() dto: RefreshTokenDto) {
-    return this.authService.logout(dto.refreshToken);
+  logout(@Body() dto: RefreshTokenDto, @Req() request: Request) {
+    return this.authService.logout(dto.refreshToken, request.ip ?? null);
   }
 
   @AuthenticatedOnly()

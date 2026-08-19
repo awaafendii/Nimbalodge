@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 
+import { AuditService } from "../../common/audit/audit.service";
 import { PrismaService } from "../../database/prisma.service";
 import { PermissionsService } from "../permissions/permissions.service";
 
@@ -33,7 +34,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-    private readonly permissions: PermissionsService
+    private readonly permissions: PermissionsService,
+    private readonly audit: AuditService
   ) {}
 
   private get accessSecret(): string {
@@ -49,15 +51,53 @@ export class AuthService {
     return this.config.get<string>("JWT_REFRESH_EXPIRES_IN")!;
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, ipAddress: string | null = null) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.isActive) {
+      this.audit.record({
+        userId: user?.id ?? null,
+        organizationId: user?.organizationId ?? null,
+        hotelId: user?.hotelId ?? null,
+        method: "POST",
+        path: "/auth/login",
+        resourceType: "auth",
+        resourceId: user?.id ?? null,
+        action: "login",
+        outcome: "FAILURE",
+        errorMessage: `Identifiants invalides (email: ${email})`,
+        ipAddress,
+      });
       throw new UnauthorizedException("Identifiants invalides");
     }
     const passwordValid = await bcrypt.compare(password, user.passwordHash);
     if (!passwordValid) {
+      this.audit.record({
+        userId: user.id,
+        organizationId: user.organizationId,
+        hotelId: user.hotelId,
+        method: "POST",
+        path: "/auth/login",
+        resourceType: "auth",
+        resourceId: user.id,
+        action: "login",
+        outcome: "FAILURE",
+        errorMessage: `Identifiants invalides (email: ${email})`,
+        ipAddress,
+      });
       throw new UnauthorizedException("Identifiants invalides");
     }
+    this.audit.record({
+      userId: user.id,
+      organizationId: user.organizationId,
+      hotelId: user.hotelId,
+      method: "POST",
+      path: "/auth/login",
+      resourceType: "auth",
+      resourceId: user.id,
+      action: "login",
+      outcome: "SUCCESS",
+      ipAddress,
+    });
     return this.issueTokens(user.id, user.organizationId, user.hotelId);
   }
 
@@ -99,7 +139,7 @@ export class AuthService {
     return this.issueTokens(user.id, user.organizationId, user.hotelId);
   }
 
-  async logout(rawToken: string): Promise<{ success: true }> {
+  async logout(rawToken: string, ipAddress: string | null = null): Promise<{ success: true }> {
     let payload: RefreshTokenPayload;
     try {
       payload = await this.jwt.verifyAsync<RefreshTokenPayload>(rawToken, {
@@ -107,12 +147,30 @@ export class AuthService {
         ignoreExpiration: true,
       });
     } catch {
-      // Token déjà invalide/mal formé : rien à révoquer, on répond succès pour rester idempotent.
+      // Token déjà invalide/mal formé : pas d'acteur identifiable, rien à journaliser — on répond
+      // succès pour rester idempotent.
       return { success: true };
     }
     await this.prisma.refreshToken.updateMany({
       where: { id: payload.jti, revokedAt: null },
       data: { revokedAt: new Date() },
+    });
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { organizationId: true, hotelId: true },
+    });
+    this.audit.record({
+      userId: payload.sub,
+      organizationId: user?.organizationId ?? null,
+      hotelId: user?.hotelId ?? null,
+      method: "POST",
+      path: "/auth/logout",
+      resourceType: "auth",
+      resourceId: payload.sub,
+      action: "logout",
+      outcome: "SUCCESS",
+      ipAddress,
     });
     return { success: true };
   }
