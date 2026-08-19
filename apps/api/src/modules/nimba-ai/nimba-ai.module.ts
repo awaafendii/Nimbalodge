@@ -9,18 +9,21 @@ import { HospitalityInsightsModule } from "../hospitality-insights/hospitality-i
 import { HrInsightsModule } from "../hr-insights/hr-insights.module";
 import { DepartmentInsightsMinimizer } from "./context/department-insights.minimizer";
 import { FinanceInsightsMinimizer } from "./context/finance-insights.minimizer";
+import { CONVERSATION_PROVIDER_TOKEN } from "./conversation/conversation-provider.interface";
+import { StatelessConversationProvider } from "./conversation/stateless-conversation.provider";
 import { AiOrchestratorService } from "./orchestrator/ai-orchestrator.service";
+import { LlmProviderModule } from "./providers/llm-provider.module";
 import { AI_TOOLS, type AiTool } from "./tools/ai-tool.interface";
 import { AiToolRegistry } from "./tools/ai-tool-registry";
 import { DepartmentInsightsTool } from "./tools/department-insights.tool";
 import { FinanceInsightsTool } from "./tools/finance-insights.tool";
 import { AiUsageService } from "./usage/ai-usage.service";
 
-// Nimba AI (Étape 4 — data access layer sécurisé). Toujours pas de contrôleur HTTP : les deux
-// premiers Tools existent et sont enregistrés dans AiToolRegistry via le multi-provider AI_TOOLS,
-// mais aucun endpoint public ne les expose encore — arrive à l'Étape 7 (UI Insights), une fois
-// Hospitality/HR ajoutés eux aussi, pour livrer un écran complet plutôt qu'un endpoint isolé.
-// D'ici là, invokeTool() est exercé directement par les tests (registre + orchestrateur).
+// Nimba AI (Étape 5 — LLM Provider abstraction). Toujours pas de contrôleur HTTP : LLMProvider/
+// ConversationProvider existent et sont testés en isolation, mais rien ne les appelle encore dans
+// le flux de l'orchestrateur — ce câblage arrive à l'Étape 9 (Assistant conversationnel), en même
+// temps que le premier vrai usage conversationnel. D'ici là, invokeTool() (Insights, sans LLM)
+// reste le seul chemin exercé de bout en bout.
 @Module({
   imports: [
     PermissionsModule,
@@ -30,6 +33,7 @@ import { AiUsageService } from "./usage/ai-usage.service";
     HospitalityInsightsModule,
     HrInsightsModule,
     AnomalyDetectionModule,
+    LlmProviderModule,
   ],
   providers: [
     AiUsageService,
@@ -46,6 +50,8 @@ import { AiUsageService } from "./usage/ai-usage.service";
       inject: [FinanceInsightsTool, DepartmentInsightsTool],
     },
     AiToolRegistry,
+    StatelessConversationProvider,
+    { provide: CONVERSATION_PROVIDER_TOKEN, useExisting: StatelessConversationProvider },
     AiOrchestratorService,
   ],
   exports: [AiUsageService, AiToolRegistry, AiOrchestratorService],
