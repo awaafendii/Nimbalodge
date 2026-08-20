@@ -135,6 +135,26 @@ describe("AiChatService", () => {
     expect(llmProvider.generate.mock.calls.length).toBeLessThanOrEqual(4);
   });
 
+  it("le message renvoyé au LLM après un Tool ne contient jamais le contexte du demandeur (permissions, user) -- uniquement data + provenance déjà minimisées par le Tool", async () => {
+    const { service, llmProvider, orchestrator } = buildService();
+    llmProvider.generate
+      .mockResolvedValueOnce({ toolCalls: [{ name: "finance-summary", arguments: {} }], model: "gemini-3.6-flash" })
+      .mockResolvedValueOnce({ text: "ok", model: "gemini-3.6-flash" });
+    orchestrator.invokeTool.mockResolvedValue({
+      data: { totalRevenue: "750000" },
+      provenance: [{ module: "Finance → Résumé" }],
+    });
+
+    await service.chat("Quel est le chiffre d'affaires ?", "conv-1", undefined, user);
+
+    const secondCallMessages = llmProvider.generate.mock.calls[1][0].messages;
+    const toolMessage = secondCallMessages.find((m: { role: string }) => m.role === "tool");
+    expect(JSON.parse(toolMessage.content)).toEqual({
+      data: { totalRevenue: "750000" },
+      provenance: [{ module: "Finance → Résumé" }],
+    });
+  });
+
   it("ne propose au LLM que les Tools déjà autorisés par le contexte résolu (listAvailable)", async () => {
     const { service, llmProvider, toolRegistry } = buildService();
     llmProvider.generate.mockResolvedValue({ text: "ok", model: "gemini-3.6-flash" });
