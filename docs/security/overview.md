@@ -168,7 +168,36 @@ mise à jour silencieuse de la règle.
 Appliqué réellement en test e2e (aucun bypass environnement) — les suites de test sont écrites en
 conséquence (nombre d'appels aux endpoints throttlés compté et commenté dans chaque fichier).
 
-## 8. Risques résiduels (avant première mise en production réelle)
+## 9. Nimba AI (IA intégrée)
+
+Document normatif détaillé : `docs/architecture/nimba-ai.md`. Résumé des invariants de sécurité
+propres à cette fonctionnalité (constructions Étapes 1-11) :
+
+- **Aucun accès direct à PostgreSQL** : tout accès donnée passe par un Tool → Business Service
+  existant, appelé avec le vrai `AuthenticatedUser` — RBAC/scope identiques à l'équivalent REST,
+  jamais de logique dupliquée ni contournée.
+- **Refus RBAC déterministe avant tout accès donnée** : `AiToolRegistry.invoke()` vérifie TOUTES
+  les `requiredPermissions` d'un Tool (AND) avant `execute()` — un refus est audité (`AuditLog`,
+  action `tool-denied`), même chemin que `AuthzAuditFilter` pour un 401/403 REST.
+- **Aucune permission IA synthétique** : chaque Tool exige exactement la permission réelle qui
+  gate déjà l'endpoint REST équivalent (`finance-summary.view`, `payslips.view`, ...) —
+  `nimba-ai.use` n'est qu'une porte d'entrée grossière, jamais un substitut au contrôle fin.
+- **Minimisation stricte avant tout contexte LLM** : chaque `DataMinimizer` ne garde que les
+  agrégats nécessaires (ex. masse salariale → total + nombre de bulletins, jamais de liste
+  nominative) ; le message envoyé au LLM après un appel de Tool ne contient jamais
+  `context.user`/`permissions`, uniquement `{data, provenance}` déjà minimisées (vérifié par
+  `ai-chat.service.spec.ts`).
+- **Le LLM ne calcule et ne modifie jamais de donnée métier** : aucun Tool en écriture n'est
+  jamais enregistré dans `AiToolRegistry` (surface figée, vérifiée par test —
+  `nimba-ai-security.e2e-spec.ts`) ; tous les chiffres affichés par Nimba AI sont produits par les
+  mêmes Business Services que l'API REST, jamais recalculés ni inventés par le LLM.
+- **Assistant sans clé configurée** : message clair, jamais une erreur 500 ; une erreur du
+  fournisseur LLM ne casse jamais Insights/Anomalies déterministes (chemins de code indépendants).
+- **`GEMINI_API_KEY` optionnelle et jamais exposée au frontend** — même discipline que les autres
+  secrets (§5, jamais journalisée). Substituée par `FakeLLMProvider` dans tous les tests
+  automatisés (aucun appel réseau réel à un fournisseur LLM depuis la suite de tests).
+
+## 10. Risques résiduels (avant première mise en production réelle)
 
 - **Aucun fournisseur d'email réel** : reset de mot de passe fonctionnel uniquement via lecture des
   logs serveur — inutilisable pour de vrais utilisateurs finaux. Remplacer par Resend/SendGrid (ou
@@ -187,9 +216,16 @@ conséquence (nombre d'appels aux endpoints throttlés compté et commenté dans
 - **Chunk frontend > 500 kB** : `apps/web/dist/assets/index-*.js` (~653 kB avant gzip) dépasse le
   seuil d'avertissement Vite. Fonctionnel, mais un code-splitting par route réduirait le temps de
   premier chargement.
+- **Nimba AI — conversation sans état côté serveur** : l'historique de l'assistant vit uniquement
+  dans le state React du frontend, perdu à la fermeture de l'onglet ; aucun `AiUsageLog` n'est
+  encore exploité par un système de quotas (le modèle est alimenté, l'écran de consultation et
+  l'application de limites viendront plus tard). Voir `docs/architecture/nimba-ai.md`, section
+  "Risques résiduels".
 
 ## Voir aussi
 
+- `docs/architecture/nimba-ai.md` — architecture détaillée de Nimba AI (§9 ci-dessus en est le
+  résumé sécurité).
 - `docs/architecture/testing.md` — fondation de tests, principe "vraie base, pas de mocks".
 - `docs/deployment/render.md` — déploiement, variables d'environnement, limites connues du plan
   `free`.
