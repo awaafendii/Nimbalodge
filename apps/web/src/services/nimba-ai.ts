@@ -77,6 +77,25 @@ export interface HrPayrollData {
   previous: HrPayrollPeriod;
 }
 
+export type AnomalySeverity = "low" | "medium" | "high" | "critical";
+
+export interface Anomaly {
+  severity: AnomalySeverity;
+  indicator: string;
+  period: { from: string; to: string };
+  observedValue: string;
+  referenceValue: string;
+  explanation: string;
+  recommendation?: string;
+  resourceType?: string;
+  resourceId?: string;
+}
+
+export interface AnomalyScanData {
+  period: { from: string; to: string };
+  anomalies: Anomaly[];
+}
+
 export interface AiPeriodFilters {
   dateFrom?: string;
   dateTo?: string;
@@ -114,4 +133,8 @@ export function getHrWorkforceInsights(filters: AiPeriodFilters = {}): Promise<A
 
 export function getHrPayrollInsights(filters: AiPeriodFilters = {}): Promise<AiResponseEnvelope<HrPayrollData>> {
   return apiClient.get(`/nimba-ai/insights/hr-payroll${buildQuery(filters)}`);
+}
+
+export function getAnomalies(filters: AiPeriodFilters = {}): Promise<AiResponseEnvelope<AnomalyScanData>> {
+  return apiClient.get(`/nimba-ai/anomalies${buildQuery(filters)}`);
 }

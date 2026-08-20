@@ -41,3 +41,10 @@ export function useHrPayrollInsights(filters: AiPeriodFilters = {}) {
     queryFn: () => nimbaAiService.getHrPayrollInsights(filters),
   });
 }
+
+export function useAnomalies(filters: AiPeriodFilters = {}) {
+  return useQuery({
+    queryKey: ["nimba-ai", "anomalies", filters],
+    queryFn: () => nimbaAiService.getAnomalies(filters),
+  });
+}
