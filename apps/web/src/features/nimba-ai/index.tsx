@@ -2,19 +2,20 @@ import { useState } from "react";
 import { cn } from "@nimbalodge/ui";
 
 import AnomaliesPage from "./anomalies.js";
+import ChatPage from "./chat.js";
 import InsightsPage from "./insights.js";
 
-type NimbaAiTab = "insights" | "anomalies";
+type NimbaAiTab = "insights" | "anomalies" | "assistant";
 
 const TABS: { id: NimbaAiTab; label: string }[] = [
   { id: "insights", label: "Insights" },
   { id: "anomalies", label: "Anomalies" },
+  { id: "assistant", label: "Assistant" },
 ];
 
-// Nimba AI. Deux onglets réels pour l'instant (Insights — Étape 7, Anomalies — Étape 8) ;
-// l'Assistant conversationnel (Étape 9) rejoindra cette page une fois construit — jamais un onglet
-// vide ou "à venir" (voir la suppression du composant ComingSoon, Étape 7 Production Readiness
-// Priority 9 : pas de scaffold mort dans ce dépôt).
+// Nimba AI. Trois onglets réels (Insights — Étape 7, Anomalies — Étape 8, Assistant — Étape 9) —
+// jamais un onglet vide ou "à venir" (voir la suppression du composant ComingSoon, Étape 7
+// Production Readiness Priority 9 : pas de scaffold mort dans ce dépôt).
 export default function NimbaAiPage() {
   const [tab, setTab] = useState<NimbaAiTab>("insights");
 
@@ -35,7 +36,7 @@ export default function NimbaAiPage() {
           </button>
         ))}
       </div>
-      {tab === "insights" ? <InsightsPage /> : <AnomaliesPage />}
+      {tab === "insights" ? <InsightsPage /> : tab === "anomalies" ? <AnomaliesPage /> : <ChatPage />}
     </div>
   );
 }

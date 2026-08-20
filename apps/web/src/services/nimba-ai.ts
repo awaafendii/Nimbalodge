@@ -138,3 +138,33 @@ export function getHrPayrollInsights(filters: AiPeriodFilters = {}): Promise<AiR
 export function getAnomalies(filters: AiPeriodFilters = {}): Promise<AiResponseEnvelope<AnomalyScanData>> {
   return apiClient.get(`/nimba-ai/anomalies${buildQuery(filters)}`);
 }
+
+// Étape 9 — Assistant conversationnel. Miroir de LLMMessage (backend) : v1 sans état, l'historique
+// complet est renvoyé par le frontend à chaque tour (voir StatelessConversationProvider).
+export type ChatMessageRole = "user" | "assistant" | "system" | "tool";
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  content: string;
+  name?: string;
+  toolCallId?: string;
+}
+
+export interface ChatToolResult {
+  tool: string;
+  data: unknown;
+}
+
+// Pas d'enveloppe AiResponseEnvelope ici : contrairement aux Insights/Anomalies (un seul Tool,
+// une seule `data`), une réponse de chat peut agréger plusieurs Tools différents — voir
+// `toolResults`, un élément par Tool réellement invoqué pendant ce tour.
+export interface ChatResponse {
+  answer?: string;
+  provenance: Provenance[];
+  toolResults: ChatToolResult[];
+  disclaimer?: string;
+}
+
+export function postChat(message: string, conversationId: string, history: ChatMessage[]): Promise<ChatResponse> {
+  return apiClient.post("/nimba-ai/chat", { message, conversationId, history });
+}

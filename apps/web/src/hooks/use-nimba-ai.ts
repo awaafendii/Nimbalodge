@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import * as nimbaAiService from "../services/nimba-ai.js";
-import type { AiMonthFilters, AiPeriodFilters } from "../services/nimba-ai.js";
+import type { AiMonthFilters, AiPeriodFilters, ChatMessage } from "../services/nimba-ai.js";
 
 // Chaque insight est indépendant (permission distincte côté backend, voir
 // apps/api/src/modules/nimba-ai) : un échec (403) sur l'un ne doit jamais empêcher les autres de
@@ -46,5 +46,15 @@ export function useAnomalies(filters: AiPeriodFilters = {}) {
   return useQuery({
     queryKey: ["nimba-ai", "anomalies", filters],
     queryFn: () => nimbaAiService.getAnomalies(filters),
+  });
+}
+
+// v1 sans état : c'est l'appelant (ChatPage) qui garde l'historique en state React et le renvoie
+// en entier à chaque tour — ce hook n'est qu'un wrapper d'appel réseau, aucun état de conversation
+// géré ici (voir StatelessConversationProvider côté backend).
+export function useChat() {
+  return useMutation({
+    mutationFn: ({ message, conversationId, history }: { message: string; conversationId: string; history: ChatMessage[] }) =>
+      nimbaAiService.postChat(message, conversationId, history),
   });
 }
