@@ -1,8 +1,11 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { RequirePermissions } from "../../common/decorators/require-permissions.decorator";
 import type { AuthenticatedUser } from "../../common/types/authenticated-request";
+import { AiChatService } from "./chat/ai-chat.service";
+import { AiChatQueryDto } from "./dto/ai-chat-query.dto";
 import { AiMonthQueryDto } from "./dto/ai-month-query.dto";
 import { AiPeriodQueryDto } from "./dto/ai-period-query.dto";
 import { AiOrchestratorService } from "./orchestrator/ai-orchestrator.service";
@@ -16,7 +19,10 @@ import { AiOrchestratorService } from "./orchestrator/ai-orchestrator.service";
 // d'architecture Nimba AI pour la structure de fichiers envisagée à l'origine).
 @Controller("nimba-ai")
 export class NimbaAiController {
-  constructor(private readonly orchestrator: AiOrchestratorService) {}
+  constructor(
+    private readonly orchestrator: AiOrchestratorService,
+    private readonly chatService: AiChatService
+  ) {}
 
   @Get("insights/finance")
   @RequirePermissions("nimba-ai.use")
@@ -55,5 +61,14 @@ export class NimbaAiController {
   @RequirePermissions("nimba-ai.use")
   getAnomalies(@Query() query: AiPeriodQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.orchestrator.invokeTool("anomaly-scan", query, user);
+  }
+
+  // conversationId généré côté serveur si absent : v1 sans état (StatelessConversationProvider) —
+  // ne sert qu'à étiqueter les messages de CE tour, aucune valeur envoyée par le client n'est
+  // jamais utilisée pour retrouver une conversation stockée ailleurs.
+  @Post("chat")
+  @RequirePermissions("nimba-ai.use")
+  chat(@Body() body: AiChatQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.chatService.chat(body.message, body.conversationId ?? randomUUID(), body.history, user);
   }
 }

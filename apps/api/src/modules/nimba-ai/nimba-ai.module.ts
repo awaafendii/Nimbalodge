@@ -12,6 +12,7 @@ import { FinanceInsightsMinimizer } from "./context/finance-insights.minimizer";
 import { HospitalityInsightsMinimizer } from "./context/hospitality-insights.minimizer";
 import { HrPayrollMinimizer } from "./context/hr-payroll.minimizer";
 import { HrWorkforceMinimizer } from "./context/hr-workforce.minimizer";
+import { AiChatService } from "./chat/ai-chat.service";
 import { CONVERSATION_PROVIDER_TOKEN } from "./conversation/conversation-provider.interface";
 import { StatelessConversationProvider } from "./conversation/stateless-conversation.provider";
 import { NimbaAiController } from "./nimba-ai.controller";
@@ -73,7 +74,8 @@ import { AiUsageService } from "./usage/ai-usage.service";
     StatelessConversationProvider,
     { provide: CONVERSATION_PROVIDER_TOKEN, useExisting: StatelessConversationProvider },
     AiOrchestratorService,
+    AiChatService,
   ],
-  exports: [AiUsageService, AiToolRegistry, AiOrchestratorService],
+  exports: [AiUsageService, AiToolRegistry, AiOrchestratorService, AiChatService],
 })
 export class NimbaAiModule {}

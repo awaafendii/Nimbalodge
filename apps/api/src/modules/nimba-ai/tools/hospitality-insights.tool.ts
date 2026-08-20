@@ -5,7 +5,7 @@ import { HospitalityInsightsMinimizer } from "../context/hospitality-insights.mi
 import { buildProvenance } from "../context/provenance";
 import type { AiResponseEnvelope } from "../dto/ai-response-envelope";
 import type { AiRequestContext } from "../orchestrator/ai-orchestrator.service";
-import type { AiTool } from "./ai-tool.interface";
+import { PERIOD_RANGE_PARAMETERS, type AiTool } from "./ai-tool.interface";
 import type { HospitalityInsightsMinimized } from "../context/hospitality-insights.minimizer";
 
 export interface HospitalityInsightsInput {
@@ -25,6 +25,7 @@ export class HospitalityInsightsTool
   readonly description =
     "Taux d'occupation, ADR, RevPAR, et répartition des réservations par statut pour une période donnée, avec comparaison à la période précédente.";
   readonly requiredPermissions = ["reservations.view"];
+  readonly parameters = PERIOD_RANGE_PARAMETERS;
 
   constructor(
     private readonly hospitalityInsightsService: HospitalityInsightsService,

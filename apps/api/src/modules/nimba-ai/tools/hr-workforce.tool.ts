@@ -5,7 +5,7 @@ import { buildProvenance } from "../context/provenance";
 import { HrWorkforceMinimizer } from "../context/hr-workforce.minimizer";
 import type { AiResponseEnvelope } from "../dto/ai-response-envelope";
 import type { AiRequestContext } from "../orchestrator/ai-orchestrator.service";
-import type { AiTool } from "./ai-tool.interface";
+import { PERIOD_RANGE_PARAMETERS, type AiTool } from "./ai-tool.interface";
 import type { WorkforceSummaryMinimized } from "../context/hr-workforce.minimizer";
 
 export interface HrWorkforceInput {
@@ -21,6 +21,7 @@ export class HrWorkforceTool implements AiTool<HrWorkforceInput, AiResponseEnvel
   readonly name = "hr-workforce-summary";
   readonly description = "Effectifs, absentéisme et demandes de congé par statut pour une période donnée.";
   readonly requiredPermissions = ["employees.view"];
+  readonly parameters = PERIOD_RANGE_PARAMETERS;
 
   constructor(
     private readonly hrInsightsService: HrInsightsService,

@@ -119,6 +119,15 @@ describe("GeminiProvider", () => {
       expect(response.usage).toEqual({ inputTokens: 120, outputTokens: 45 });
     });
 
+    it("renvoie le modèle réellement utilisé (pour AiUsageLog.model, Étape 9)", async () => {
+      const provider = buildProvider({ GEMINI_API_KEY: "test-key", GEMINI_MODEL: "gemini-custom" });
+      generateContentMock.mockResolvedValue({ text: "ok", usageMetadata: {} });
+
+      const response = await provider.generate({ messages: [{ role: "user", content: "..." }] });
+
+      expect(response.model).toBe("gemini-custom");
+    });
+
     it("ne renvoie jamais un tableau toolCalls vide (undefined à la place)", async () => {
       const provider = buildProvider();
       generateContentMock.mockResolvedValue({ text: "Pas de fonction appelée.", functionCalls: [], usageMetadata: {} });

@@ -5,7 +5,7 @@ import type { Anomaly } from "../../anomaly-detection/anomaly";
 import { buildProvenance } from "../context/provenance";
 import type { AiResponseEnvelope } from "../dto/ai-response-envelope";
 import type { AiRequestContext } from "../orchestrator/ai-orchestrator.service";
-import type { AiTool } from "./ai-tool.interface";
+import { PERIOD_RANGE_PARAMETERS, type AiTool } from "./ai-tool.interface";
 
 export interface AnomalyDetectionInput {
   dateFrom?: string;
@@ -33,6 +33,7 @@ export class AnomalyDetectionTool implements AiTool<AnomalyDetectionInput, AiRes
   readonly description =
     "Détecte les anomalies (budget, trésorerie, stock, RH, audit trail) auxquelles le demandeur a accès, sur une période donnée, à partir de règles et de seuils déterministes.";
   readonly requiredPermissions: string[] = [];
+  readonly parameters = PERIOD_RANGE_PARAMETERS;
 
   constructor(private readonly anomalyDetectionService: AnomalyDetectionService) {}
 

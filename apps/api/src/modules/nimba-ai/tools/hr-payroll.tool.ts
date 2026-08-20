@@ -5,7 +5,7 @@ import { buildProvenance } from "../context/provenance";
 import { HrPayrollMinimizer } from "../context/hr-payroll.minimizer";
 import type { AiResponseEnvelope } from "../dto/ai-response-envelope";
 import type { AiRequestContext } from "../orchestrator/ai-orchestrator.service";
-import type { AiTool } from "./ai-tool.interface";
+import { PERIOD_RANGE_PARAMETERS, type AiTool } from "./ai-tool.interface";
 import type { PayrollSummaryMinimized } from "../context/hr-payroll.minimizer";
 
 export interface HrPayrollInput {
@@ -22,6 +22,7 @@ export class HrPayrollTool implements AiTool<HrPayrollInput, AiResponseEnvelope<
   readonly name = "hr-payroll-summary";
   readonly description = "Masse salariale (net à payer total, bulletins finalisés/payés) pour un mois, avec comparaison au mois précédent.";
   readonly requiredPermissions = ["payslips.view"];
+  readonly parameters = PERIOD_RANGE_PARAMETERS;
 
   constructor(
     private readonly hrInsightsService: HrInsightsService,

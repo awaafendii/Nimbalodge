@@ -5,7 +5,7 @@ import { FinanceInsightsMinimizer } from "../context/finance-insights.minimizer"
 import { buildProvenance } from "../context/provenance";
 import type { AiResponseEnvelope } from "../dto/ai-response-envelope";
 import type { AiRequestContext } from "../orchestrator/ai-orchestrator.service";
-import type { AiTool } from "./ai-tool.interface";
+import { PERIOD_MONTH_PARAMETERS, type AiTool } from "./ai-tool.interface";
 import type { FinanceSummaryMinimized } from "../context/finance-insights.minimizer";
 
 export interface FinanceInsightsInput {
@@ -22,6 +22,7 @@ export class FinanceInsightsTool implements AiTool<FinanceInsightsInput, AiRespo
   readonly name = "finance-summary";
   readonly description = "Résumé financier (recettes, dépenses, solde caisse/banque) pour une période donnée (mois/année).";
   readonly requiredPermissions = ["finance-summary.view"];
+  readonly parameters = PERIOD_MONTH_PARAMETERS;
 
   constructor(
     private readonly financeSummaryService: FinanceSummaryService,

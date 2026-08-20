@@ -6,7 +6,7 @@ import { DepartmentInsightsMinimizer } from "../context/department-insights.mini
 import { buildProvenance } from "../context/provenance";
 import type { AiResponseEnvelope } from "../dto/ai-response-envelope";
 import type { AiRequestContext } from "../orchestrator/ai-orchestrator.service";
-import type { AiTool } from "./ai-tool.interface";
+import { PERIOD_RANGE_PARAMETERS, type AiTool } from "./ai-tool.interface";
 import type { DepartmentComparisonMinimized } from "../context/department-insights.minimizer";
 
 export interface DepartmentInsightsInput {
@@ -27,6 +27,7 @@ export class DepartmentInsightsTool
   readonly description =
     "Comparaison des recettes/dépenses/rentabilité par département de l'hôtel, sur une période donnée.";
   readonly requiredPermissions = ["reports.financial.view"];
+  readonly parameters = PERIOD_RANGE_PARAMETERS;
 
   constructor(
     private readonly reportsService: ReportsService,

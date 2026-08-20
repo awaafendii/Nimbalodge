@@ -57,7 +57,12 @@ import { WorkSchedulesModule } from "./modules/work-schedules/work-schedules.mod
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // ignoreEnvFile en test (NODE_ENV=test, posé par `dotenv -e .env.test` avant même le boot de
+    // Nest) : sinon ConfigModule retombe silencieusement sur le vrai `.env` du poste pour toute clé
+    // absente de .env.test (ex. GEMINI_API_KEY) — process.env déjà peuplé par .env.test reste
+    // l'unique source de vérité en test, jamais un vrai secret de dev qui ferait fuiter un vrai
+    // appel réseau (Gemini) dans un test e2e (voir .env.test.example, Nimba AI Étape 9).
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv, ignoreEnvFile: process.env.NODE_ENV === "test" }),
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 100 }]),
     AppLoggingModule,
     MonitoringModule,

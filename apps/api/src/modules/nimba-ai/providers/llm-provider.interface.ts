@@ -36,6 +36,10 @@ export interface LLMResponse {
   text?: string;
   toolCalls?: LLMToolCall[];
   usage?: LLMUsage;
+  // Modèle réellement utilisé pour cet appel (ex. "gemini-3.6-flash") — pour AiUsageLog.model
+  // (Étape 9, AiChatService), jamais pour l'affichage utilisateur. Absent pour un provider sans
+  // notion de modèle (ex. FakeLLMProvider) ; l'appelant retombe alors sur LLMProvider.name.
+  model?: string;
 }
 
 export interface LLMGenerateParams {

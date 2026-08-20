@@ -19,6 +19,7 @@ describe("AiToolRegistry", () => {
       name: "finance-summary",
       description: "Résumé financier",
       requiredPermissions: ["finance-summary.view"],
+      parameters: { type: "object", properties: {}, required: [] },
       execute: jest.fn().mockResolvedValue({ total: 1000 }),
       ...overrides,
     };
