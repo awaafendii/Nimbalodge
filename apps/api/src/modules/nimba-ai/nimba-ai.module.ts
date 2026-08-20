@@ -19,6 +19,7 @@ import { AiOrchestratorService } from "./orchestrator/ai-orchestrator.service";
 import { LlmProviderModule } from "./providers/llm-provider.module";
 import { AI_TOOLS, type AiTool } from "./tools/ai-tool.interface";
 import { AiToolRegistry } from "./tools/ai-tool-registry";
+import { AnomalyDetectionTool } from "./tools/anomaly-detection.tool";
 import { DepartmentInsightsTool } from "./tools/department-insights.tool";
 import { FinanceInsightsTool } from "./tools/finance-insights.tool";
 import { HospitalityInsightsTool } from "./tools/hospitality-insights.tool";
@@ -55,6 +56,7 @@ import { AiUsageService } from "./usage/ai-usage.service";
     HospitalityInsightsTool,
     HrWorkforceTool,
     HrPayrollTool,
+    AnomalyDetectionTool,
     {
       provide: AI_TOOLS,
       useFactory: (
@@ -62,9 +64,10 @@ import { AiUsageService } from "./usage/ai-usage.service";
         departmentTool: DepartmentInsightsTool,
         hospitalityTool: HospitalityInsightsTool,
         hrWorkforceTool: HrWorkforceTool,
-        hrPayrollTool: HrPayrollTool
-      ): AiTool[] => [financeTool, departmentTool, hospitalityTool, hrWorkforceTool, hrPayrollTool],
-      inject: [FinanceInsightsTool, DepartmentInsightsTool, HospitalityInsightsTool, HrWorkforceTool, HrPayrollTool],
+        hrPayrollTool: HrPayrollTool,
+        anomalyDetectionTool: AnomalyDetectionTool
+      ): AiTool[] => [financeTool, departmentTool, hospitalityTool, hrWorkforceTool, hrPayrollTool, anomalyDetectionTool],
+      inject: [FinanceInsightsTool, DepartmentInsightsTool, HospitalityInsightsTool, HrWorkforceTool, HrPayrollTool, AnomalyDetectionTool],
     },
     AiToolRegistry,
     StatelessConversationProvider,

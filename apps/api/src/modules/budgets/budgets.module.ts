@@ -9,5 +9,8 @@ import { BudgetsService } from "./budgets.service";
   imports: [NotificationsModule, DepartmentsModule],
   controllers: [BudgetsController],
   providers: [BudgetsService],
+  // Exporté pour Nimba AI (BudgetOverspendDetector, Étape 8) — réutilise list()/getExecution()
+  // directement plutôt que de dupliquer leur logique de scope/calcul.
+  exports: [BudgetsService],
 })
 export class BudgetsModule {}

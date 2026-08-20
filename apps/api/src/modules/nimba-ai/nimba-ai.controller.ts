@@ -47,4 +47,13 @@ export class NimbaAiController {
   getHrPayrollInsights(@Query() query: AiPeriodQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.orchestrator.invokeTool("hr-payroll-summary", query, user);
   }
+
+  // requiredPermissions du Tool est vide par design (voir anomaly-detection.tool.ts) — la porte
+  // d'entrée ici reste nimba-ai.use, le filtrage réel est fait par détecteur/permission plus
+  // profond dans AnomalyDetectionService.
+  @Get("anomalies")
+  @RequirePermissions("nimba-ai.use")
+  getAnomalies(@Query() query: AiPeriodQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.orchestrator.invokeTool("anomaly-scan", query, user);
+  }
 }

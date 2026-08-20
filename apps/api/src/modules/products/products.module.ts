@@ -9,5 +9,8 @@ import { ProductsService } from "./products.service";
   imports: [StockMovementsModule, NotificationsModule],
   controllers: [ProductsController],
   providers: [ProductsService],
+  // Exporté pour Nimba AI (StockAnomalyDetector, Étape 8) — réutilise findBelowThreshold()
+  // directement plutôt que de dupliquer sa logique de scope/calcul.
+  exports: [ProductsService],
 })
 export class ProductsModule {}

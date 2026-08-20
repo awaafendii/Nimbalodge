@@ -83,3 +83,46 @@ describe("Nimba AI — insights (RBAC réel)", () => {
     await client.get("/api/v1/nimba-ai/insights/hr-payroll").expect(403);
   });
 });
+
+// Étape 8 Nimba AI — l'endpoint /nimba-ai/anomalies n'exige QUE nimba-ai.use au niveau du Tool
+// (requiredPermissions volontairement vide, voir anomaly-detection.tool.ts) ; le filtrage réel se
+// fait par détecteur dans AnomalyDetectionService, ici vérifié via un vrai StockAnomalyDetector
+// (produit sous seuil, aucun mouvement de stock nécessaire — le solde par défaut est 0) plutôt
+// qu'un mock. Regroupé en 2 logins (throttlé à 5/60s).
+describe("Nimba AI — détection d'anomalies (RBAC réel)", () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    ({ app, prisma } = await createTestApp());
+    await resetDatabase(prisma);
+    await seedPermissionCatalog(prisma);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it("un demandeur avec nimba-ai.use mais aucune permission couverte par un détecteur reçoit un tableau vide, jamais une erreur", async () => {
+    // Login #1/2.
+    const tenant = await createTenant(prisma, "nimba-ai-anomaly-no-coverage", ["nimba-ai.use"]);
+    const token = await loginAndGetToken(app, tenant.email, tenant.password);
+
+    const response = await authed(app, token).get("/api/v1/nimba-ai/anomalies").expect(200);
+    expect(response.body.data.anomalies).toEqual([]);
+  });
+
+  it("products.view fait tourner StockAnomalyDetector et remonte un produit réellement sous son seuil", async () => {
+    // Login #2/2.
+    const tenant = await createTenant(prisma, "nimba-ai-anomaly-stock", ["nimba-ai.use", "products.view", "products.create"]);
+    const token = await loginAndGetToken(app, tenant.email, tenant.password);
+    const client = authed(app, token);
+
+    const product = await client.post("/api/v1/products").send({ name: "Savon", minThreshold: 10 }).expect(201);
+
+    const response = await client.get("/api/v1/nimba-ai/anomalies").expect(200);
+    const stockAnomaly = response.body.data.anomalies.find((anomaly: { resourceType?: string }) => anomaly.resourceType === "product");
+
+    expect(stockAnomaly).toMatchObject({ resourceId: product.body.id, observedValue: "0", referenceValue: "10" });
+  });
+});

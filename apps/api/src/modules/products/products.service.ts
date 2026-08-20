@@ -107,7 +107,10 @@ export class ProductsService {
 
   // "Alertes" (§24) — même mécanisme que BudgetsService.checkOverspendAlerts() (Phase 12) :
   // déclenchement à la demande, fan-out + déduplication délégués à NotificationsService.
-  async checkLowStock(requester: AuthenticatedUser) {
+  // Lecture pure, sans effet de bord — extrait de checkLowStock() (Étape 8, Nimba AI
+  // StockAnomalyDetector) pour que la détection d'anomalies puisse consulter le même calcul sans
+  // jamais déclencher de notification (une simple lecture ne doit jamais avoir d'effet de bord).
+  async findBelowThreshold(requester: AuthenticatedUser) {
     const hotelWhere = requester.hotelId
       ? { hotelId: requester.hotelId }
       : { hotel: { organizationId: requester.organizationId } };
@@ -116,29 +119,37 @@ export class ProductsService {
       where: { ...hotelWhere, isActive: true, minThreshold: { not: null } },
     });
 
-    let lowStockCount = 0;
-    let notificationsCreated = 0;
+    const belowThreshold: { productId: string; name: string; hotelId: string; onHand: Prisma.Decimal; threshold: Prisma.Decimal }[] = [];
     for (const product of products) {
       const balances = await this.stockMovementsService.computeOnHand(product.hotelId, product.id);
       const total = [...balances.values()].reduce((sum, quantity) => sum.plus(quantity), new Prisma.Decimal(0));
       if (product.minThreshold && total.lessThan(product.minThreshold)) {
-        lowStockCount += 1;
-        const hotel = await this.prisma.hotel.findUniqueOrThrow({ where: { id: product.hotelId } });
-        notificationsCreated += await this.notificationsService.notifyUsersWithPermission({
-          hotelId: product.hotelId,
-          organizationId: hotel.organizationId,
-          permissionKey: "products.view",
-          type: "product_low_stock",
-          title: `Stock bas — ${product.name}`,
-          message: `"${product.name}" est sous le seuil minimum : ${total.toString()} en stock pour un seuil de ${product.minThreshold.toString()}.`,
-          link: `/products/${product.id}`,
-          relatedType: "product",
-          relatedId: product.id,
-        });
+        belowThreshold.push({ productId: product.id, name: product.name, hotelId: product.hotelId, onHand: total, threshold: product.minThreshold });
       }
     }
+    return belowThreshold;
+  }
 
-    return { lowStockCount, notificationsCreated };
+  async checkLowStock(requester: AuthenticatedUser) {
+    const belowThreshold = await this.findBelowThreshold(requester);
+
+    let notificationsCreated = 0;
+    for (const item of belowThreshold) {
+      const hotel = await this.prisma.hotel.findUniqueOrThrow({ where: { id: item.hotelId } });
+      notificationsCreated += await this.notificationsService.notifyUsersWithPermission({
+        hotelId: item.hotelId,
+        organizationId: hotel.organizationId,
+        permissionKey: "products.view",
+        type: "product_low_stock",
+        title: `Stock bas — ${item.name}`,
+        message: `"${item.name}" est sous le seuil minimum : ${item.onHand.toString()} en stock pour un seuil de ${item.threshold.toString()}.`,
+        link: `/products/${item.productId}`,
+        relatedType: "product",
+        relatedId: item.productId,
+      });
+    }
+
+    return { lowStockCount: belowThreshold.length, notificationsCreated };
   }
 
   private async findWithHotelOrThrow(id: string) {

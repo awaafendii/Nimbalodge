@@ -74,6 +74,38 @@ export class AuditLogsService {
     };
   }
 
+  // Nimba AI (Étape 8, AuditTrailAnomalyDetector) — rafale d'échecs (connexions refusées, accès
+  // refusés) par utilisateur ou par IP sur une fenêtre donnée. Deux groupBy distincts : un échec de
+  // connexion anonyme a un userId nul mais une ipAddress réelle, un refus de permission a l'inverse
+  // un userId réel — jamais fusionnés, sinon une rafale par IP resterait invisible.
+  async countFailuresByActor(dateFrom: Date, dateTo: Date, requester: AuthenticatedUser) {
+    const effectiveHotelId = requester.hotelId ?? undefined;
+    const baseWhere: Prisma.AuditLogWhereInput = {
+      organizationId: requester.organizationId,
+      ...(effectiveHotelId ? { hotelId: effectiveHotelId } : {}),
+      outcome: "FAILURE",
+      createdAt: { gte: dateFrom, lt: dateTo },
+    };
+
+    const [byUser, byIp] = await Promise.all([
+      this.prisma.auditLog.groupBy({
+        by: ["userId"],
+        where: { ...baseWhere, userId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.auditLog.groupBy({
+        by: ["ipAddress"],
+        where: { ...baseWhere, ipAddress: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+
+    return {
+      byUser: byUser.map((row) => ({ userId: row.userId as string, count: row._count._all })),
+      byIp: byIp.map((row) => ({ ipAddress: row.ipAddress as string, count: row._count._all })),
+    };
+  }
+
   async findOne(id: string, requester: AuthenticatedUser) {
     const auditLog = await this.prisma.auditLog.findUnique({ where: { id } });
     if (!auditLog) {
