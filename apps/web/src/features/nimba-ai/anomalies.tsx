@@ -2,7 +2,7 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, Icons, type BadgeProps
 
 import { QueryState } from "../../components/common/query-state.js";
 import { useAnomalies } from "../../hooks/use-nimba-ai.js";
-import type { Anomaly, AnomalySeverity } from "../../services/nimba-ai.js";
+import type { Anomaly, AnomalySeverity, Provenance } from "../../services/nimba-ai.js";
 
 // Nimba AI (Étape 8 — Détection d'anomalies). Un seul appel (GET /nimba-ai/anomalies) couvre tous
 // les détecteurs auxquels le demandeur a accès (voir anomaly-detection.tool.ts, requiredPermissions
@@ -64,6 +64,7 @@ export default function AnomaliesPage() {
                     <AnomalyCard key={`${anomaly.resourceType ?? ""}-${anomaly.resourceId ?? index}`} anomaly={anomaly} />
                   ))}
                 </div>
+                <ProvenanceNote provenance={envelope.provenance} />
               </>
             );
           }}
@@ -71,6 +72,15 @@ export default function AnomaliesPage() {
       </CardContent>
     </Card>
   );
+}
+
+// Même affichage que les sections Insights (voir insights.tsx) — la détection d'anomalies est
+// elle aussi une donnée calculée par le backend, jamais par le LLM ; sa provenance doit être aussi
+// systématiquement visible que pour un Insight (voir le plan d'architecture Nimba AI, "Sources /
+// provenance").
+function ProvenanceNote({ provenance }: { provenance: Provenance[] }) {
+  if (provenance.length === 0) return null;
+  return <p className="text-xs text-muted-foreground">Source : {provenance.map((p) => p.module).join(", ")}</p>;
 }
 
 function AnomalyCard({ anomaly }: { anomaly: Anomaly }) {
