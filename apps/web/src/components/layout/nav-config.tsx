@@ -52,6 +52,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/reports", label: "Rapports", subtitle: "Rapports paramétrables, export", icon: Icons.IconReport, permission: "reports.financial.view" },
       { to: "/notifications", label: "Notifications", subtitle: "Alertes, échéances", icon: Icons.IconBell, permission: "notifications.view" },
       { to: "/audit-logs", label: "Audit", subtitle: "Journal des actions, avant/après", icon: Icons.IconShield, permission: "audit-logs.view" },
+      { to: "/nimba-ai", label: "Nimba AI", subtitle: "Insights, anomalies, assistant", icon: Icons.IconSparkles, permission: "nimba-ai.use" },
       { to: "/settings", label: "Paramètres", subtitle: "Organisation, hôtel, départements", icon: Icons.IconGear, permission: "departments.view" },
     ],
   },

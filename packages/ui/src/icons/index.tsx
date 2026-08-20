@@ -166,6 +166,18 @@ export const IconShield = (p: IconProps) => (
   </svg>
 );
 
+export const IconSparkles = (p: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" {...p}>
+    <path
+      d="M11 3.5c.5 2.7 1 3.9 2 4.9 1 1 2.2 1.5 4.9 2-2.7.5-3.9 1-4.9 2-1 1-1.5 2.2-2 4.9-.5-2.7-1-3.9-2-4.9-1-1-2.2-1.5-4.9-2 2.7-.5 3.9-1 4.9-2 1-1 1.5-2.2 2-4.9Z"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path d="M18.5 15.5c.3 1.3.6 1.8 1.8 2.2-1.2.4-1.5.9-1.8 2.2-.3-1.3-.6-1.8-1.8-2.2 1.2-.4 1.5-.9 1.8-2.2Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+  </svg>
+);
+
 export const IconMark = (p: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" {...p}>
     <path

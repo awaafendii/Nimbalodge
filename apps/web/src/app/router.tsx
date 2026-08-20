@@ -16,6 +16,7 @@ import HousekeepingPage from "../features/housekeeping/index.js";
 import MaintenancePage from "../features/maintenance/index.js";
 import ReportsPage from "../features/reports/index.js";
 import AuditLogsPage from "../features/audit-logs/index.js";
+import NimbaAiPage from "../features/nimba-ai/index.js";
 import NotificationsPage from "../features/notifications/index.js";
 import SettingsPage from "../features/settings/index.js";
 
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
           { path: "/reports", element: <ReportsPage /> },
           { path: "/notifications", element: <NotificationsPage /> },
           { path: "/audit-logs", element: <AuditLogsPage /> },
+          { path: "/nimba-ai", element: <NimbaAiPage /> },
           { path: "/settings", element: <SettingsPage /> },
           { path: "*", element: <Navigate to="/dashboard" replace /> },
         ],

@@ -9,21 +9,28 @@ import { HospitalityInsightsModule } from "../hospitality-insights/hospitality-i
 import { HrInsightsModule } from "../hr-insights/hr-insights.module";
 import { DepartmentInsightsMinimizer } from "./context/department-insights.minimizer";
 import { FinanceInsightsMinimizer } from "./context/finance-insights.minimizer";
+import { HospitalityInsightsMinimizer } from "./context/hospitality-insights.minimizer";
+import { HrPayrollMinimizer } from "./context/hr-payroll.minimizer";
+import { HrWorkforceMinimizer } from "./context/hr-workforce.minimizer";
 import { CONVERSATION_PROVIDER_TOKEN } from "./conversation/conversation-provider.interface";
 import { StatelessConversationProvider } from "./conversation/stateless-conversation.provider";
+import { NimbaAiController } from "./nimba-ai.controller";
 import { AiOrchestratorService } from "./orchestrator/ai-orchestrator.service";
 import { LlmProviderModule } from "./providers/llm-provider.module";
 import { AI_TOOLS, type AiTool } from "./tools/ai-tool.interface";
 import { AiToolRegistry } from "./tools/ai-tool-registry";
 import { DepartmentInsightsTool } from "./tools/department-insights.tool";
 import { FinanceInsightsTool } from "./tools/finance-insights.tool";
+import { HospitalityInsightsTool } from "./tools/hospitality-insights.tool";
+import { HrPayrollTool } from "./tools/hr-payroll.tool";
+import { HrWorkforceTool } from "./tools/hr-workforce.tool";
 import { AiUsageService } from "./usage/ai-usage.service";
 
-// Nimba AI (Étape 5 — LLM Provider abstraction). Toujours pas de contrôleur HTTP : LLMProvider/
-// ConversationProvider existent et sont testés en isolation, mais rien ne les appelle encore dans
-// le flux de l'orchestrateur — ce câblage arrive à l'Étape 9 (Assistant conversationnel), en même
-// temps que le premier vrai usage conversationnel. D'ici là, invokeTool() (Insights, sans LLM)
-// reste le seul chemin exercé de bout en bout.
+// Nimba AI (Étape 7 — Système d'Insights). Premier contrôleur HTTP : 5 Tools couvrent désormais
+// Finance/Département/Hôtellerie/RH-effectif/RH-paie, chacun gardé par sa permission réelle. RH
+// scindé en deux Tools (hr-workforce-summary vs hr-payroll-summary) plutôt qu'un seul, pour que
+// payslips.view (donnée salariale) gate la masse salariale indépendamment de employees.view
+// (visibilité RH courante) — reproduit exactement l'exemple du brief.
 @Module({
   imports: [
     PermissionsModule,
@@ -35,19 +42,29 @@ import { AiUsageService } from "./usage/ai-usage.service";
     AnomalyDetectionModule,
     LlmProviderModule,
   ],
+  controllers: [NimbaAiController],
   providers: [
     AiUsageService,
     FinanceInsightsMinimizer,
     DepartmentInsightsMinimizer,
+    HospitalityInsightsMinimizer,
+    HrWorkforceMinimizer,
+    HrPayrollMinimizer,
     FinanceInsightsTool,
     DepartmentInsightsTool,
+    HospitalityInsightsTool,
+    HrWorkforceTool,
+    HrPayrollTool,
     {
       provide: AI_TOOLS,
-      useFactory: (financeTool: FinanceInsightsTool, departmentTool: DepartmentInsightsTool): AiTool[] => [
-        financeTool,
-        departmentTool,
-      ],
-      inject: [FinanceInsightsTool, DepartmentInsightsTool],
+      useFactory: (
+        financeTool: FinanceInsightsTool,
+        departmentTool: DepartmentInsightsTool,
+        hospitalityTool: HospitalityInsightsTool,
+        hrWorkforceTool: HrWorkforceTool,
+        hrPayrollTool: HrPayrollTool
+      ): AiTool[] => [financeTool, departmentTool, hospitalityTool, hrWorkforceTool, hrPayrollTool],
+      inject: [FinanceInsightsTool, DepartmentInsightsTool, HospitalityInsightsTool, HrWorkforceTool, HrPayrollTool],
     },
     AiToolRegistry,
     StatelessConversationProvider,
