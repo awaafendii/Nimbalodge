@@ -32,8 +32,8 @@ export class FinanceSummaryService {
 
     // Scope départemental (même pattern opt-in qu'assertInDepartmentScope, Étape 5) : un
     // utilisateur sans affectation UserDepartment n'est pas restreint (comportement inchangé, cas
-    // de tous les HOTEL_ADMIN existants) ; un utilisateur affecté ne voit que les recettes/
-    // dépenses/factures de son (ses) département(s). CashAccount/BankAccount ne portent pas de
+    // des rôles à accès large sur un hôtel, ex. DIRECTEUR_HOTEL) ; un utilisateur affecté ne voit
+    // que les recettes/dépenses/factures de son (ses) département(s). CashAccount/BankAccount ne portent pas de
     // departmentId (comptes hôtel, pas départementaux) — soldes toujours à l'échelle de l'hôtel.
     const departmentIds = await this.departmentsService.getDepartmentIds(requester.id);
     const departmentWhere = departmentIds.length > 0 ? { departmentId: { in: departmentIds } } : {};

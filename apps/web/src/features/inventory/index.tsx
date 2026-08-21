@@ -22,6 +22,7 @@ import {
 import { QueryState } from "../../components/common/query-state.js";
 import { useDepartments } from "../../hooks/use-departments.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import { useCreateProduct, useProductStock, useProducts, useUpdateProduct } from "../../hooks/use-products.js";
 import {
   useCreateAdjustment,
@@ -61,6 +62,8 @@ export function WarehousesCard() {
   const departments = useDepartments();
   const hotels = useHotels();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("warehouses.create");
+  const canUpdate = usePermission("warehouses.update");
 
   const departmentNameById = new Map((departments.data ?? []).map((department) => [department.id, department.name]));
 
@@ -68,21 +71,23 @@ export function WarehousesCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Entrepôts</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter un entrepôt
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateWarehouseForm
-              departmentOptions={departments.data ?? []}
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter un entrepôt
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateWarehouseForm
+                departmentOptions={departments.data ?? []}
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -94,10 +99,12 @@ export function WarehousesCard() {
           emptyTitle="Aucun entrepôt configuré"
           emptyDescription="Créez votre premier entrepôt pour commencer à suivre le stock."
           emptyAction={
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter un entrepôt
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter un entrepôt
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -128,18 +135,19 @@ export function WarehousesCard() {
                 id: "actions",
                 header: "",
                 align: "right",
-                cell: (warehouse) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={updateWarehouse.isPending}
-                    onClick={() =>
-                      updateWarehouse.mutate({ id: warehouse.id, input: { isActive: !warehouse.isActive } })
-                    }
-                  >
-                    {warehouse.isActive ? "Désactiver" : "Réactiver"}
-                  </Button>
-                ),
+                cell: (warehouse) =>
+                  canUpdate ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateWarehouse.isPending}
+                      onClick={() =>
+                        updateWarehouse.mutate({ id: warehouse.id, input: { isActive: !warehouse.isActive } })
+                      }
+                    >
+                      {warehouse.isActive ? "Désactiver" : "Réactiver"}
+                    </Button>
+                  ) : null,
               },
             ];
             return (
@@ -266,25 +274,29 @@ export function ProductsCard() {
   const hotels = useHotels();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [stockTarget, setStockTarget] = useState<Product | null>(null);
+  const canCreate = usePermission("products.create");
+  const canUpdate = usePermission("products.update");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Produits</CardTitle>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter un produit
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateProductForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setCreateDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter un produit
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateProductForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setCreateDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -296,10 +308,12 @@ export function ProductsCard() {
           emptyTitle="Aucun produit enregistré"
           emptyDescription="Ajoutez votre premier produit pour commencer à suivre le stock."
           emptyAction={
-            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter un produit
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter un produit
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -342,14 +356,16 @@ export function ProductsCard() {
                     <Button variant="outline" size="sm" onClick={() => setStockTarget(product)}>
                       Voir le stock
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={updateProduct.isPending}
-                      onClick={() => updateProduct.mutate({ id: product.id, input: { isActive: !product.isActive } })}
-                    >
-                      {product.isActive ? "Désactiver" : "Réactiver"}
-                    </Button>
+                    {canUpdate ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={updateProduct.isPending}
+                        onClick={() => updateProduct.mutate({ id: product.id, input: { isActive: !product.isActive } })}
+                      >
+                        {product.isActive ? "Désactiver" : "Réactiver"}
+                      </Button>
+                    ) : null}
                   </div>
                 ),
               },
@@ -531,28 +547,31 @@ export function StockMovementsCard() {
   const productNameById = new Map((products.data ?? []).map((product) => [product.id, product.name]));
   const warehouseNameById = new Map((warehouses.data ?? []).map((warehouse) => [warehouse.id, warehouse.name]));
 
-  const canCreate = (products.data ?? []).length > 0 && (warehouses.data ?? []).length > 0;
+  const canCreate = usePermission("stock-movements.create");
+  const prerequisitesMet = (products.data ?? []).length > 0 && (warehouses.data ?? []).length > 0;
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Mouvements de stock</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" disabled={!canCreate}>
-              <Icons.IconPlus />
-              Nouveau mouvement
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateMovementForm
-              productOptions={products.data ?? []}
-              warehouseOptions={warehouses.data ?? []}
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" disabled={!prerequisitesMet}>
+                <Icons.IconPlus />
+                Nouveau mouvement
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateMovementForm
+                productOptions={products.data ?? []}
+                warehouseOptions={warehouses.data ?? []}
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -563,12 +582,12 @@ export function StockMovementsCard() {
           isEmpty={(data) => data.length === 0}
           emptyTitle="Aucun mouvement de stock enregistré"
           emptyDescription={
-            !canCreate
+            !prerequisitesMet
               ? "Ajoutez d'abord un entrepôt et un produit ci-dessus."
               : "Enregistrez votre premier mouvement de stock."
           }
           emptyAction={
-            canCreate ? (
+            canCreate && prerequisitesMet ? (
               <Button size="sm" onClick={() => setDialogOpen(true)}>
                 <Icons.IconPlus />
                 Nouveau mouvement

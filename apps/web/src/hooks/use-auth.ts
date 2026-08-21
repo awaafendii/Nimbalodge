@@ -36,6 +36,24 @@ export function useLogin() {
   });
 }
 
+// HotelSwitcher — changer d'établissement actif rejoue exactement le même durcissement que
+// logout/login : tokens remplacés, TOUT le cache React Query vidé (`queryClient.clear()`, même
+// mécanisme que useLogout) avant de rafraîchir /auth/me. Jamais une invalidation sélective : on ne
+// veut aucun risque qu'une query oubliée continue d'afficher des données de l'ancien hôtel après
+// le switch (§24 — "ne jamais conserver de données sensibles de l'ancien hôtel").
+export function useSwitchHotel() {
+  const setTokens = useAuthStore((s) => s.setTokens);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (hotelId: string) => authService.switchHotel(hotelId),
+    onSuccess: async (tokens) => {
+      setTokens(tokens);
+      queryClient.clear();
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    },
+  });
+}
+
 export function useLogout() {
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const clearAuth = useAuthStore((s) => s.clearAuth);

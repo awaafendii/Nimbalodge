@@ -27,7 +27,7 @@ export class AiOrchestratorService {
 
   async resolveContext(user: AuthenticatedUser): Promise<AiRequestContext> {
     const [{ permissions }, departmentIds] = await Promise.all([
-      this.permissionsService.resolveForUser(user.id),
+      this.permissionsService.resolveForUser(user.id, user.hotelId),
       this.departmentsService.getDepartmentIds(user.id),
     ]);
     return { user, permissions, departmentIds };

@@ -17,3 +17,9 @@ export function logout(refreshToken: string): Promise<{ success: true }> {
 export function getMe(): Promise<AuthUser> {
   return apiFetch<AuthUser>("/auth/me", { method: "GET" });
 }
+
+// Toujours revalidé côté backend contre une HotelMembership active (voir AuthService.switchHotel)
+// — jamais un simple changement de hotelId côté client.
+export function switchHotel(hotelId: string): Promise<AuthTokens> {
+  return apiFetch<AuthTokens>("/auth/switch-hotel", { method: "POST", body: { hotelId } });
+}

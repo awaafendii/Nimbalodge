@@ -33,8 +33,8 @@ export interface OrganizationFixture {
 }
 
 // Crée une organisation de test avec un rôle scopé possédant les permissions demandées (toutes
-// par défaut) — équivalent du rôle HOTEL_ADMIN du seed de dev, mais isolé par organisation pour
-// que chaque suite/test puisse construire des tenants indépendants sans collision.
+// par défaut) — équivalent du rôle DIRECTEUR_HOTEL du seed de dev, mais isolé par organisation
+// pour que chaque suite/test puisse construire des tenants indépendants sans collision.
 export async function createOrganizationWithRole(
   prisma: PrismaService,
   slug: string,
@@ -63,8 +63,8 @@ export interface HotelUserFixture {
 }
 
 // Crée un hôtel + un utilisateur rattaché à cet hôtel (hotelId non-nul → scope restreint à cet
-// hôtel, comme HOTEL_ADMIN en dev). Réutilisable pour ajouter un 2e hôtel à une organisation déjà
-// créée (test d'isolation inter-hôtel) sans dupliquer le rôle.
+// hôtel, comme DIRECTEUR_HOTEL en dev). Réutilisable pour ajouter un 2e hôtel à une organisation
+// déjà créée (test d'isolation inter-hôtel) sans dupliquer le rôle.
 export async function createHotelUser(
   prisma: PrismaService,
   organizationId: string,
@@ -99,6 +99,68 @@ export async function createUserInHotel(
   });
   await prisma.userRole.create({ data: { userId: user.id, roleId } });
   return { hotelId, email, password: TEST_PASSWORD };
+}
+
+// Crée un rôle supplémentaire dans une organisation EXISTANTE (contrairement à
+// createOrganizationWithRole, qui crée toujours une nouvelle organisation) — nécessaire pour
+// tester "même hôtel/organisation, rôles différents" (ex. un utilisateur RESPONSABLE_FINANCIER à
+// l'Hôtel A et DIRECTEUR_HOTEL à l'Hôtel B de la même organisation).
+export async function createRole(
+  prisma: PrismaService,
+  organizationId: string,
+  name: string,
+  permissionKeys: string[]
+): Promise<string> {
+  const permissions = permissionsSeeded ?? (await seedPermissionCatalog(prisma));
+  const role = await prisma.role.create({ data: { name, organizationId, isSystem: false } });
+  const granted = permissions.filter((permission) => permissionKeys.includes(permission.key));
+  await Promise.all(
+    granted.map((permission) =>
+      prisma.rolePermission.create({ data: { roleId: role.id, permissionId: permission.id } })
+    )
+  );
+  return role.id;
+}
+
+export interface HotelMembershipFixture {
+  userId: string;
+  hotelId: string;
+  email: string;
+  password: string;
+}
+
+// RBAC multi-hôtel (audit RBAC multi-hôtel) — crée un utilisateur dont le scope hôtel/rôle vient
+// exclusivement d'une HotelMembership, jamais d'une UserRole (contrairement à
+// createHotelUser/createUserInHotel ci-dessus, qui restent le chemin de compatibilité pour tous
+// les tests existants, non modifiés). `User.hotelId` est tout de même renseigné (comme en
+// dev/prod) : c'est l'indice "hôtel préféré" que resolveActiveHotelId() consulte, jamais
+// l'autorité elle-même — voir auth.service.ts.
+export async function createHotelMembershipUser(
+  prisma: PrismaService,
+  organizationId: string,
+  hotelId: string,
+  roleId: string,
+  emailSlug: string
+): Promise<HotelMembershipFixture> {
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 12);
+  const email = `member-${emailSlug}@nimba-test-fixture.test`;
+  const user = await prisma.user.create({
+    data: { email, passwordHash, firstName: "Test", lastName: "Member", organizationId, hotelId },
+  });
+  await prisma.hotelMembership.create({ data: { userId: user.id, hotelId, roleId } });
+  return { userId: user.id, hotelId, email, password: TEST_PASSWORD };
+}
+
+// Ajoute une 2e (ou Ne) HotelMembership à un utilisateur déjà créé — pour tester un même
+// utilisateur avec un rôle différent selon l'hôtel (§2), ou un profil multi-hôtel type BOSS.
+export async function addHotelMembership(
+  prisma: PrismaService,
+  userId: string,
+  hotelId: string,
+  roleId: string,
+  status: "ACTIVE" | "SUSPENDED" = "ACTIVE"
+) {
+  return prisma.hotelMembership.create({ data: { userId, hotelId, roleId, status } });
 }
 
 export interface TenantFixture extends OrganizationFixture, HotelUserFixture {}

@@ -25,11 +25,22 @@ mise à jour silencieuse de la règle.
   organisation ; un demandeur hôtel-scopé ne sort jamais de son hôtel ; un demandeur avec au moins
   une affectation département (`UserDepartment`) est en plus restreint à ses département(s) — scope
   additif, jamais substitutif.
-- **Rôles seedés (dev/démo uniquement)** : `SUPER_ADMIN` reçoit tout le catalogue ; `HOTEL_ADMIN`
-  un sous-ensemble explicite (`prisma/seed.ts`) qui exclut volontairement les opérations org-level
-  (`hotels.create/update`, `finance-expenses.book`, `system-monitoring.view`, ...). En production,
-  seul `SUPER_ADMIN` est créé par `bootstrap-production.ts` — tout autre rôle est créé par
-  l'opérateur lui-même depuis l'application.
+- **Rôles seedés (dev/démo uniquement)** : `SUPER_ADMIN` reçoit tout le catalogue ; 8 rôles métier
+  (`BOSS`, `DIRECTEUR_HOTEL`, `RESPONSABLE_FINANCIER`, `RESPONSABLE_RH`, `RECEPTIONNISTE`,
+  `RESPONSABLE_STOCK`, `RESPONSABLE_MAINTENANCE`, `HOUSEKEEPING`) reçoivent chacun un sous-ensemble
+  explicite (`prisma/seed.ts`) qui exclut volontairement les opérations org-level
+  (`hotels.create/update`, `finance-expenses.book`, `system-monitoring.view`, ...). Détail complet :
+  `docs/architecture/access-matrix.md`. En production, seul `SUPER_ADMIN` est créé par
+  `bootstrap-production.ts` — tout autre rôle est créé par l'opérateur lui-même depuis
+  l'application.
+- **Multi-hôtel (`HotelMembership`)** : un rôle métier n'est jamais attribué via `UserRole`
+  (réservé aux rôles plateforme, aujourd'hui seulement `SUPER_ADMIN`) mais via une
+  `HotelMembership(userId, hotelId, roleId, status)` — un utilisateur peut détenir un rôle
+  différent par hôtel. `PermissionsService.resolveForUser(userId, activeHotelId)` calcule l'union
+  des permissions `UserRole` (toujours actives) et de la `HotelMembership` de l'hôtel actif
+  (seulement si `status: ACTIVE`). `POST /auth/switch-hotel` revalide toujours contre une
+  membership ACTIVE réelle avant de réémettre les tokens — jamais un `hotelId` accepté tel quel
+  depuis le client. Détail : `docs/architecture/rbac-multi-hotel.md`.
 - **Cohérence frontend/backend** : chaque bouton/action sensible du frontend est gardé par la même
   clé de permission que son endpoint backend (vérifié systématiquement Étape 7, Priority 1).
 
@@ -196,6 +207,12 @@ propres à cette fonctionnalité (constructions Étapes 1-11) :
 - **`GEMINI_API_KEY` optionnelle et jamais exposée au frontend** — même discipline que les autres
   secrets (§5, jamais journalisée). Substituée par `FakeLLMProvider` dans tous les tests
   automatisés (aucun appel réseau réel à un fournisseur LLM depuis la suite de tests).
+- **Aucun Tool n'expose de paramètre `hotelId`** : l'hôtel actif résolu par chaque Tool vient
+  exclusivement de `context.user.hotelId` (JWT de la session, jamais un argument choisi par le
+  LLM) — une question qui nomme explicitement un autre hôtel ne peut donc structurellement jamais
+  faire fuiter les données de cet hôtel, vérifié par test (`nimba-ai-hotel-membership.e2e-spec.ts`).
+  Un garde statique (`security-invariants.spec.ts`) empêche en plus tout Tool/Minimizer futur
+  d'importer `PrismaService` directement. Détail : `docs/architecture/rbac-multi-hotel.md`.
 
 ## 10. Risques résiduels (avant première mise en production réelle)
 
@@ -221,9 +238,27 @@ propres à cette fonctionnalité (constructions Étapes 1-11) :
   encore exploité par un système de quotas (le modèle est alimenté, l'écran de consultation et
   l'application de limites viendront plus tard). Voir `docs/architecture/nimba-ai.md`, section
   "Risques résiduels".
+- **`ReportsService.financialReport()` n'applique pas le scope départemental** : contrairement à
+  `FinanceSummaryService.getSummary()`, le rapport financier (REST et Tool Nimba AI
+  `department-comparison`) ne filtre jamais par les départements assignés au demandeur — un rôle
+  scopé à un seul département verrait les lignes de tous les départements de l'hôtel. Aucun des 9
+  rôles seedés n'a de `UserDepartment` assigné aujourd'hui (le cas ne s'est jamais présenté en
+  pratique), mais mérite une décision produit avant qu'un rôle département-scopé n'utilise ce
+  rapport. Voir `docs/architecture/rbac-multi-hotel.md`.
+- **Aucune garde de permission au niveau du routeur frontend** : `RequireAuth` ne vérifie que
+  l'authentification, jamais la permission — une route dont l'entrée de nav est masquée reste
+  directement navigable par URL (la page affiche sa coquille, jamais de donnée, puisque les hooks
+  de données restent gardés côté backend). Pas une fuite de donnée constatée, mais une garde de
+  redirection par route serait un changement de comportement UX à valider avec le produit. Voir
+  `docs/architecture/rbac-multi-hotel.md`.
 
 ## Voir aussi
 
+- `docs/architecture/rbac-multi-hotel.md` — `HotelMembership`, `switch-hotel`, 9 rôles métier,
+  `HotelSwitcher` frontend (§1 ci-dessus en est le résumé RBAC, §9 le résumé Nimba AI).
+- `docs/architecture/access-matrix.md` — matrice d'accès complète (profil → module → sous-module →
+  route → permission), générée depuis le catalogue et le seed réels.
+- `docs/architecture/frontend-routes.md` — routes frontend vérifiées et visibilité nav par profil.
 - `docs/architecture/nimba-ai.md` — architecture détaillée de Nimba AI (§9 ci-dessus en est le
   résumé sécurité).
 - `docs/architecture/testing.md` — fondation de tests, principe "vraie base, pas de mocks".

@@ -22,6 +22,7 @@ import {
 import { QueryState } from "../../components/common/query-state.js";
 import { useCreateGuest, useGuests, useUpdateGuest } from "../../hooks/use-guests.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import type { Guest } from "../../services/guests.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
@@ -36,25 +37,29 @@ export function GuestsCard() {
   const updateGuest = useUpdateGuest();
   const hotels = useHotels();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("guests.create");
+  const canUpdate = usePermission("guests.update");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Clients</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter un client
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateGuestForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter un client
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateGuestForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -66,10 +71,12 @@ export function GuestsCard() {
           emptyTitle="Aucun client enregistré"
           emptyDescription="Ajoutez votre premier client pour commencer à constituer votre fichier clients."
           emptyAction={
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter un client
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter un client
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -119,16 +126,17 @@ export function GuestsCard() {
                 id: "actions",
                 header: "",
                 align: "right",
-                cell: (guest) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={updateGuest.isPending}
-                    onClick={() => updateGuest.mutate({ id: guest.id, input: { isActive: !guest.isActive } })}
-                  >
-                    {guest.isActive ? "Désactiver" : "Réactiver"}
-                  </Button>
-                ),
+                cell: (guest) =>
+                  canUpdate ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateGuest.isPending}
+                      onClick={() => updateGuest.mutate({ id: guest.id, input: { isActive: !guest.isActive } })}
+                    >
+                      {guest.isActive ? "Désactiver" : "Réactiver"}
+                    </Button>
+                  ) : null,
               },
             ];
             return (

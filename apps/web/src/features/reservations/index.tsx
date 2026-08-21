@@ -24,6 +24,7 @@ import {
 import { QueryState } from "../../components/common/query-state.js";
 import { useGuests } from "../../hooks/use-guests.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import {
   useCancelReservation,
   useCheckInReservation,
@@ -59,6 +60,12 @@ export function ReservationsCard() {
   const cancel = useCancelReservation();
   const noShow = useNoShowReservation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("reservations.create");
+  const canConfirm = usePermission("reservations.confirm");
+  const canCheckIn = usePermission("reservations.check-in");
+  const canCheckOut = usePermission("reservations.check-out");
+  const canCancel = usePermission("reservations.cancel");
+  const canNoShow = usePermission("reservations.no-show");
 
   const guestNameById = new Map((guests.data ?? []).map((guest) => [guest.id, `${guest.firstName} ${guest.lastName}`]));
   const roomById = new Map((rooms.data ?? []).map((room) => [room.id, room]));
@@ -71,21 +78,23 @@ export function ReservationsCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Réservations</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" disabled={(guests.data ?? []).length === 0 || (rooms.data ?? []).length === 0}>
-              <Icons.IconPlus />
-              Nouvelle réservation
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateReservationForm
-              guestOptions={guests.data ?? []}
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" disabled={(guests.data ?? []).length === 0 || (rooms.data ?? []).length === 0}>
+                <Icons.IconPlus />
+                Nouvelle réservation
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateReservationForm
+                guestOptions={guests.data ?? []}
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -103,7 +112,7 @@ export function ReservationsCard() {
                 : "Créez votre première réservation."
           }
           emptyAction={
-            (guests.data ?? []).length > 0 && (rooms.data ?? []).length > 0 ? (
+            canCreate && (guests.data ?? []).length > 0 && (rooms.data ?? []).length > 0 ? (
               <Button size="sm" onClick={() => setDialogOpen(true)}>
                 <Icons.IconPlus />
                 Nouvelle réservation
@@ -168,51 +177,61 @@ export function ReservationsCard() {
                   <div className="flex flex-wrap justify-end gap-2">
                     {reservation.status === "PENDING" ? (
                       <>
-                        <Button
-                          size="sm"
-                          disabled={anyTransitionPending}
-                          onClick={() => confirm.mutate({ id: reservation.id })}
-                        >
-                          Confirmer
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={anyTransitionPending}
-                          onClick={() => cancel.mutate({ id: reservation.id })}
-                        >
-                          Annuler
-                        </Button>
+                        {canConfirm ? (
+                          <Button
+                            size="sm"
+                            disabled={anyTransitionPending}
+                            onClick={() => confirm.mutate({ id: reservation.id })}
+                          >
+                            Confirmer
+                          </Button>
+                        ) : null}
+                        {canCancel ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={anyTransitionPending}
+                            onClick={() => cancel.mutate({ id: reservation.id })}
+                          >
+                            Annuler
+                          </Button>
+                        ) : null}
                       </>
                     ) : null}
                     {reservation.status === "CONFIRMED" ? (
                       <>
-                        <Button
-                          size="sm"
-                          disabled={anyTransitionPending}
-                          onClick={() => checkIn.mutate({ id: reservation.id })}
-                        >
-                          Check-in
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={anyTransitionPending}
-                          onClick={() => noShow.mutate({ id: reservation.id })}
-                        >
-                          No-show
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={anyTransitionPending}
-                          onClick={() => cancel.mutate({ id: reservation.id })}
-                        >
-                          Annuler
-                        </Button>
+                        {canCheckIn ? (
+                          <Button
+                            size="sm"
+                            disabled={anyTransitionPending}
+                            onClick={() => checkIn.mutate({ id: reservation.id })}
+                          >
+                            Check-in
+                          </Button>
+                        ) : null}
+                        {canNoShow ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={anyTransitionPending}
+                            onClick={() => noShow.mutate({ id: reservation.id })}
+                          >
+                            No-show
+                          </Button>
+                        ) : null}
+                        {canCancel ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={anyTransitionPending}
+                            onClick={() => cancel.mutate({ id: reservation.id })}
+                          >
+                            Annuler
+                          </Button>
+                        ) : null}
                       </>
                     ) : null}
-                    {reservation.status === "CHECKED_IN" ? (
+                    {reservation.status === "CHECKED_IN" && canCheckOut ? (
                       <Button
                         size="sm"
                         disabled={anyTransitionPending}

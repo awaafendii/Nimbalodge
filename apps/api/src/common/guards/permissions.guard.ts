@@ -27,7 +27,7 @@ export class PermissionsGuard implements CanActivate {
     ]);
     if (required && required.length > 0) {
       const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-      const { permissions } = await this.permissionsService.resolveForUser(request.user.id);
+      const { permissions } = await this.permissionsService.resolveForUser(request.user.id, request.user.hotelId);
       const hasAll = required.every((key) => permissions.has(key));
       if (!hasAll) {
         throw new ForbiddenException("Permissions insuffisantes");

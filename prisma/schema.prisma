@@ -85,6 +85,7 @@ model Hotel {
 
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   users               User[]
+  hotelMemberships     HotelMembership[]
   departments          Department[]
   costCenters           CostCenter[]
   financialCategories    FinancialCategory[]
@@ -236,6 +237,7 @@ model User {
   organization           Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   hotel                   Hotel?               @relation(fields: [hotelId], references: [id], onDelete: SetNull)
   roles                    UserRole[]
+  hotelMemberships          HotelMembership[]
   refreshTokens             RefreshToken[]
   passwordResetTokens        PasswordResetToken[]
   twoFactorRecoveryCodes      TwoFactorRecoveryCode[]
@@ -275,10 +277,12 @@ model User {
   @@index([hotelId])
 }
 
-/// `organizationId` null = rôle système global (ex. SUPER_ADMIN, seedé une fois).
-/// `organizationId` renseigné = rôle personnalisé propre à une organisation (§28 : "les rôles
-/// doivent être personnalisables"). Le scope hôtel vs organisation n'est PAS porté ici — il vient
-/// de `User.hotelId` (séparation ROLE/SCOPE, §29).
+/// `organizationId` null = rôle système global (ex. SUPER_ADMIN, seedé une fois, attribué via
+/// `UserRole` — jamais rattaché à un hôtel). `organizationId` renseigné = rôle métier propre à une
+/// organisation (les 8 profils métier RBAC multi-hôtel), attribué par hôtel via `HotelMembership`
+/// — jamais via `UserRole` (séparation ROLE/SCOPE : le rôle définit les permissions, le membership
+/// détermine l'hôtel où elles s'appliquent). `UserRole` reste réservé aux rôles système ; un rôle
+/// métier ne doit jamais y être attaché directement, sous peine de contourner le scope hôtel.
 model Role {
   id             String   @id @default(cuid())
   name           String
@@ -288,9 +292,10 @@ model Role {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  permissions  RolePermission[]
-  users        UserRole[]
+  organization     Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions      RolePermission[]
+  users            UserRole[]
+  hotelMemberships HotelMembership[]
 
   @@unique([organizationId, name])
 }
@@ -325,6 +330,39 @@ model UserRole {
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
+}
+
+enum HotelMembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// Source de vérité du RBAC multi-hôtel métier (audit RBAC multi-hôtel, remplace la limitation
+/// "un seul hôtel, un seul rôle" de `User.hotelId`/`UserRole`) : un utilisateur peut avoir un rôle
+/// différent par établissement (ex. Responsable Financier à Conakry, Directeur à Kindia).
+/// `@@unique([userId, hotelId])` — un seul rôle actif par hôtel par utilisateur (pas de cumul de
+/// rôles sur un même hôtel dans cette version). `status` plutôt qu'une suppression : révoquer
+/// l'accès sans perdre l'historique (audit). Un accès à un hôtel métier passe TOUJOURS par une
+/// ligne ACTIVE ici — jamais déduit d'un `hotelId` fourni par le client (voir assertInScope, qui
+/// continue de lire `requester.hotelId`, désormais dérivé et validé depuis ce modèle à
+/// l'émission du JWT plutôt que directement depuis `User.hotelId`).
+model HotelMembership {
+  id        String                 @id @default(cuid())
+  userId    String
+  hotelId   String
+  roleId    String
+  status    HotelMembershipStatus  @default(ACTIVE)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  role  Role  @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, hotelId])
+  @@index([userId])
+  @@index([hotelId])
+  @@index([roleId])
 }
 
 /// `id` = jti du JWT de refresh. `tokenHash` = SHA-256 du JWT brut (jamais stocké en clair) —

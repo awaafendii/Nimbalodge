@@ -24,6 +24,7 @@ import { QueryState } from "../../components/common/query-state.js";
 import type { Department } from "../../services/departments.js";
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "../../hooks/use-departments.js";
 import { useCreateHotel, useCurrentHotel, useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
 // Référence de branchement complet (Phase 14) : aucun département n'est imposé à la création d'un
@@ -42,9 +43,18 @@ export default function SettingsPage() {
 function HotelInfoCard() {
   const user = useAuthStore((s) => s.user);
   const hotel = useCurrentHotel();
+  // RBAC multi-hôtel : `!user.hotel` ne distingue plus "gère le portefeuille d'hôtels" de
+  // "hôtel-scopé" — un BOSS a désormais toujours un hôtel actif (HotelMembership), jamais
+  // `hotel: null`. Le vrai critère est la permission `hotels.create` (portée organisationnelle),
+  // pas la nullité de l'hôtel actif.
+  const canManageHotels = usePermission("hotels.create");
+
+  if (canManageHotels) {
+    return <OrganizationHotelsCard />;
+  }
 
   if (!user?.hotel) {
-    return <OrganizationHotelsCard />;
+    return null;
   }
 
   return (
@@ -86,11 +96,10 @@ function HotelInfoCard() {
   );
 }
 
-// Vue org-wide (SUPER_ADMIN sans hôtel unique, ex. juste après le bootstrap de production) — liste
-// les hôtels réels de l'organisation et permet d'en créer un premier. Aucun sélecteur multi-hôtel
-// pour basculer le contexte de travail (pas encore construit) : un SUPER_ADMIN agit déjà à travers
-// tous les hôtels de son organisation, un hôtel précis se choisit au cas par cas (ex. le sélecteur
-// d'hôtel du formulaire "Ajouter un département" ci-dessous).
+// Vue de gestion du portefeuille d'hôtels (BOSS via `hotels.create`, ou SUPER_ADMIN sans hôtel
+// unique) — liste les hôtels réels de l'organisation et permet d'en créer un nouveau. Le
+// changement de contexte de travail actif se fait désormais via HotelSwitcher (header) — cette
+// carte reste pour la gestion du portefeuille (créer/consulter), pas pour choisir l'hôtel actif.
 function OrganizationHotelsCard() {
   const user = useAuthStore((s) => s.user);
   const hotels = useHotels();

@@ -22,6 +22,7 @@ import {
 
 import { QueryState } from "../../components/common/query-state.js";
 import { useHotels } from "../../hooks/use-hotels.js";
+import { usePermission } from "../../hooks/use-permission.js";
 import { useCreateRoomType, useRoomTypes, useUpdateRoomType } from "../../hooks/use-room-types.js";
 import { useCreateRoom, useRooms, useUpdateRoom } from "../../hooks/use-rooms.js";
 import type { RoomType } from "../../services/room-types.js";
@@ -37,25 +38,29 @@ export function RoomTypesCard() {
   const updateRoomType = useUpdateRoomType();
   const hotels = useHotels();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("room-types.create");
+  const canUpdate = usePermission("room-types.update");
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Types de chambres</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Icons.IconPlus />
-              Ajouter un type
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateRoomTypeForm
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Icons.IconPlus />
+                Ajouter un type
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateRoomTypeForm
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -67,10 +72,12 @@ export function RoomTypesCard() {
           emptyTitle="Aucun type de chambre configuré"
           emptyDescription="Créez votre premier type de chambre (tarif, capacité) avant d'ajouter des chambres."
           emptyAction={
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Icons.IconPlus />
-              Ajouter un type
-            </Button>
+            canCreate ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Icons.IconPlus />
+                Ajouter un type
+              </Button>
+            ) : undefined
           }
         >
           {(data) => {
@@ -105,18 +112,19 @@ export function RoomTypesCard() {
                 id: "actions",
                 header: "",
                 align: "right",
-                cell: (roomType) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={updateRoomType.isPending}
-                    onClick={() =>
-                      updateRoomType.mutate({ id: roomType.id, input: { isActive: !roomType.isActive } })
-                    }
-                  >
-                    {roomType.isActive ? "Désactiver" : "Réactiver"}
-                  </Button>
-                ),
+                cell: (roomType) =>
+                  canUpdate ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateRoomType.isPending}
+                      onClick={() =>
+                        updateRoomType.mutate({ id: roomType.id, input: { isActive: !roomType.isActive } })
+                      }
+                    >
+                      {roomType.isActive ? "Désactiver" : "Réactiver"}
+                    </Button>
+                  ) : null,
               },
             ];
             return (
@@ -250,6 +258,8 @@ export function RoomsCard() {
   const updateRoom = useUpdateRoom();
   const hotels = useHotels();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const canCreate = usePermission("rooms.create");
+  const canUpdate = usePermission("rooms.update");
 
   const roomTypeNameById = new Map((roomTypes.data ?? []).map((roomType) => [roomType.id, roomType.name]));
 
@@ -257,21 +267,23 @@ export function RoomsCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle>Chambres</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" disabled={(roomTypes.data ?? []).length === 0}>
-              <Icons.IconPlus />
-              Ajouter une chambre
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <CreateRoomForm
-              roomTypeOptions={roomTypes.data ?? []}
-              hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
-              onDone={() => setDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" disabled={(roomTypes.data ?? []).length === 0}>
+                <Icons.IconPlus />
+                Ajouter une chambre
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <CreateRoomForm
+                roomTypeOptions={roomTypes.data ?? []}
+                hotelOptions={!user?.hotel ? (hotels.data ?? []) : []}
+                onDone={() => setDialogOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : null}
       </CardHeader>
       <CardContent>
         <QueryState
@@ -287,7 +299,7 @@ export function RoomsCard() {
               : "Ajoutez votre première chambre pour commencer à gérer votre inventaire."
           }
           emptyAction={
-            (roomTypes.data ?? []).length > 0 ? (
+            canCreate && (roomTypes.data ?? []).length > 0 ? (
               <Button size="sm" onClick={() => setDialogOpen(true)}>
                 <Icons.IconPlus />
                 Ajouter une chambre
@@ -326,16 +338,17 @@ export function RoomsCard() {
                 id: "actions",
                 header: "",
                 align: "right",
-                cell: (room) => (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={updateRoom.isPending}
-                    onClick={() => updateRoom.mutate({ id: room.id, input: { isActive: !room.isActive } })}
-                  >
-                    {room.isActive ? "Désactiver" : "Réactiver"}
-                  </Button>
-                ),
+                cell: (room) =>
+                  canUpdate ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={updateRoom.isPending}
+                      onClick={() => updateRoom.mutate({ id: room.id, input: { isActive: !room.isActive } })}
+                    >
+                      {room.isActive ? "Désactiver" : "Réactiver"}
+                    </Button>
+                  ) : null,
               },
             ];
             return (

@@ -10,6 +10,10 @@ export interface AuthUser {
   lastName: string;
   organization: { id: string; name: string };
   hotel: { id: string; name: string } | null;
+  // Établissements réellement accessibles (HotelMembership active, RBAC multi-hôtel) — alimente le
+  // HotelSwitcher. Vide pour un utilisateur org-wide sans membership (ex. SUPER_ADMIN), qui garde
+  // `hotel: null`.
+  hotels: { id: string; name: string; role: string }[];
   roles: string[];
   permissions: string[];
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
@@ -105,10 +105,11 @@ export class AuthService {
       });
       throw new UnauthorizedException("Identifiants invalides");
     }
+    const activeHotelId = await this.resolveActiveHotelId(user.id, user.hotelId);
     this.audit.record({
       userId: user.id,
       organizationId: user.organizationId,
-      hotelId: user.hotelId,
+      hotelId: activeHotelId,
       method: "POST",
       path: "/auth/login",
       resourceType: "auth",
@@ -129,7 +130,80 @@ export class AuthService {
       return { twoFactorRequired: true, challengeToken };
     }
 
-    return this.issueTokens(user.id, user.organizationId, user.hotelId, meta);
+    return this.issueTokens(user.id, user.organizationId, activeHotelId, meta);
+  }
+
+  // RBAC multi-hôtel (audit) : `User.hotelId` n'est plus l'autorité pour un utilisateur qui a au
+  // moins une HotelMembership — l'hôtel actif de la session provient alors exclusivement d'une
+  // membership ACTIVE. Mais un utilisateur SANS AUCUNE membership (SUPER_ADMIN, qui n'en a
+  // typiquement aucune ; ou un utilisateur pas encore migré vers le modèle membership) garde le
+  // comportement historique : `preferredHotelId` (= `User.hotelId`) tel quel, jamais `null` par
+  // défaut — repli explicite, pas un contournement, pour ne pas élargir silencieusement l'accès
+  // (`null` = org-wide) d'un utilisateur qui était hôtel-scopé avant cette migration.
+  // Ordre de préférence si des memberships existent : celle correspondant à `preferredHotelId`
+  // (continuité pour un utilisateur mono-hôtel habituel) sinon la première (ordre de création).
+  private async resolveActiveHotelId(userId: string, preferredHotelId: string | null): Promise<string | null> {
+    const memberships = await this.prisma.hotelMembership.findMany({
+      where: { userId, status: "ACTIVE" },
+      orderBy: { createdAt: "asc" },
+    });
+    const first = memberships[0];
+    if (!first) return preferredHotelId;
+    const preferred = preferredHotelId ? memberships.find((m) => m.hotelId === preferredHotelId) : undefined;
+    return (preferred ?? first).hotelId;
+  }
+
+  // POST /auth/switch-hotel — jamais un hotelId accepté tel quel : toujours revalidé contre une
+  // HotelMembership(status: ACTIVE) réelle avant réémission des tokens (le frontend ne peut jamais
+  // décider seul de l'hôtel actif). SUPER_ADMIN n'a normalement aucune membership et n'utilise pas
+  // ce endpoint (déjà org-wide via hotelId: null) — un SUPER_ADMIN sans membership sur l'hôtel visé
+  // reçoit donc le même 403 que n'importe quel autre utilisateur, par design (§6 : pas de
+  // contournement silencieux, même pour la plateforme).
+  async switchHotel(userId: string, targetHotelId: string, meta: SessionMeta = { userAgent: null, ipAddress: null }) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException("Utilisateur introuvable ou inactif");
+    }
+
+    const membership = await this.prisma.hotelMembership.findUnique({
+      where: { userId_hotelId: { userId, hotelId: targetHotelId } },
+    });
+    if (!membership || membership.status !== "ACTIVE") {
+      this.audit.record({
+        userId,
+        organizationId: user.organizationId,
+        hotelId: targetHotelId,
+        method: "POST",
+        path: "/auth/switch-hotel",
+        resourceType: "auth",
+        resourceId: userId,
+        action: "switch-hotel",
+        outcome: "FAILURE",
+        errorMessage: "Aucune affectation active sur cet établissement",
+        ipAddress: meta.ipAddress,
+      });
+      throw new ForbiddenException("Vous n'avez pas accès à cet établissement");
+    }
+
+    this.audit.record({
+      userId,
+      organizationId: user.organizationId,
+      hotelId: targetHotelId,
+      method: "POST",
+      path: "/auth/switch-hotel",
+      resourceType: "auth",
+      resourceId: userId,
+      action: "switch-hotel",
+      outcome: "SUCCESS",
+      ipAddress: meta.ipAddress,
+    });
+
+    // Persisté comme indice "dernier hôtel actif" pour que login()/refreshTokens() y reviennent
+    // naturellement ensuite (resolveActiveHotelId) — jamais relu comme autorité en soi, toujours
+    // revalidé contre une HotelMembership active à chaque émission de token.
+    await this.prisma.user.update({ where: { id: userId }, data: { hotelId: targetHotelId } });
+
+    return this.issueTokens(userId, user.organizationId, targetHotelId, meta);
   }
 
   async refreshTokens(rawToken: string, meta: SessionMeta = { userAgent: null, ipAddress: null }) {
@@ -175,7 +249,8 @@ export class AuthService {
       data: { revokedAt: new Date(), revokedReason: "rotated" },
     });
 
-    return this.issueTokens(user.id, user.organizationId, user.hotelId, meta);
+    const activeHotelId = await this.resolveActiveHotelId(user.id, user.hotelId);
+    return this.issueTokens(user.id, user.organizationId, activeHotelId, meta);
   }
 
   async logout(rawToken: string, ipAddress: string | null = null): Promise<{ success: true }> {
@@ -214,22 +289,38 @@ export class AuthService {
     return { success: true };
   }
 
-  async resolveMe(userId: string) {
+  // `activeHotelId` vient du JWT de la session courante (voir AuthController.me), jamais de
+  // `User.hotelId` directement : après un switch-hotel, cette réponse doit refléter l'hôtel
+  // réellement actif de CETTE session, pas le dernier hôtel par défaut de l'utilisateur (qui
+  // suit, sans jamais être l'autorité — voir resolveActiveHotelId).
+  async resolveMe(userId: string, activeHotelId: string | null) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { organization: true, hotel: true },
+      include: { organization: true },
     });
     if (!user) {
       throw new UnauthorizedException();
     }
-    const { roleNames, permissions } = await this.permissions.resolveForUser(userId);
+    const [{ roleNames, permissions }, activeHotel, memberships] = await Promise.all([
+      this.permissions.resolveForUser(userId, activeHotelId),
+      activeHotelId ? this.prisma.hotel.findUnique({ where: { id: activeHotelId } }) : Promise.resolve(null),
+      this.prisma.hotelMembership.findMany({
+        where: { userId, status: "ACTIVE" },
+        include: { hotel: true, role: true },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
     return {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       organization: { id: user.organization.id, name: user.organization.name },
-      hotel: user.hotel ? { id: user.hotel.id, name: user.hotel.name } : null,
+      hotel: activeHotel ? { id: activeHotel.id, name: activeHotel.name } : null,
+      // Établissements réellement accessibles (HotelMembership active) — alimente le
+      // HotelSwitcher frontend. Absent/vide pour un utilisateur org-wide sans membership
+      // (ex. SUPER_ADMIN), qui garde `hotel: null` (déjà géré côté Sidebar : "tous hôtels").
+      hotels: memberships.map((m) => ({ id: m.hotel.id, name: m.hotel.name, role: m.role.name })),
       roles: roleNames,
       permissions: Array.from(permissions).sort(),
     };

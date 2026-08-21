@@ -37,7 +37,7 @@ describe("AiOrchestratorService", () => {
 
       const context = await service.resolveContext(user);
 
-      expect(permissionsService.resolveForUser).toHaveBeenCalledWith(user.id);
+      expect(permissionsService.resolveForUser).toHaveBeenCalledWith(user.id, user.hotelId);
       expect(departmentsService.getDepartmentIds).toHaveBeenCalledWith(user.id);
       expect(context).toEqual({ user, permissions, departmentIds: ["dept-1"] });
     });

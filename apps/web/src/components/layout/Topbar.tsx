@@ -14,6 +14,7 @@ import {
   Icons,
 } from "@nimbalodge/ui";
 
+import { HotelSwitcher } from "./HotelSwitcher.js";
 import { ALL_NAV_ITEMS } from "./nav-config.js";
 import { PendingSyncBadge } from "../common/pending-sync-panel.js";
 import { useLogout } from "../../hooks/use-auth.js";
@@ -40,6 +41,8 @@ export function Topbar() {
       <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleSidebar} aria-label="Menu">
         <Icons.IconBurger />
       </Button>
+
+      <HotelSwitcher />
 
       <div className="min-w-0 flex-1">
         <h1 className="truncate font-title text-lg font-[var(--fw-title)] leading-tight text-foreground">

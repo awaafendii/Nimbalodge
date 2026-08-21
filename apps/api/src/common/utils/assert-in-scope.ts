@@ -19,8 +19,8 @@ export function assertInScope(organizationId: string, hotelId: string | null, re
 
 // Étape 5 — UserDepartment enfin exploité (voir docs/architecture/audit-master-prompt-v2.md,
 // section J : la table existe depuis la Phase 4 mais n'était lue par aucun guard). Scope
-// additif et opt-in : un demandeur SANS affectation département (le cas de tous les
-// HOTEL_ADMIN existants aujourd'hui) n'est pas restreint — comportement inchangé. Un demandeur
+// additif et opt-in : un demandeur SANS affectation département (le cas des rôles à accès large
+// sur un hôtel, ex. DIRECTEUR_HOTEL) n'est pas restreint — comportement inchangé. Un demandeur
 // avec au moins une affectation ne voit/agit que sur les ressources de ses département(s), en
 // plus (jamais à la place) de l'isolation organisation/hôtel d'assertInScope.
 export function assertInDepartmentScope(departmentId: string | null, requesterDepartmentIds: string[]): void {

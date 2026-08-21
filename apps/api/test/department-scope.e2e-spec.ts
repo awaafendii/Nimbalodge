@@ -9,7 +9,7 @@ import { PrismaService } from "../src/database/prisma.service";
 // Étape 5 — vérifie assertInDepartmentScope() (apps/api/src/common/utils/assert-in-scope.ts),
 // appliqué pour la première fois au module Expenses. Deux utilisateurs du MÊME hôtel : l'un
 // affecté au département Restaurant (via UserDepartment), l'autre sans aucune affectation — le
-// cas de tous les HOTEL_ADMIN existants aujourd'hui, qui ne doit subir aucune régression.
+// cas des rôles à accès large sur un hôtel (ex. DIRECTEUR_HOTEL), qui ne doit subir aucune régression.
 describe("Scope départemental (assertInDepartmentScope, module Expenses)", () => {
   let app: INestApplication;
   let prisma: PrismaService;

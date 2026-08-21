@@ -93,8 +93,8 @@ export class DocumentsService {
     return parent;
   }
 
-  private async requirePermission(userId: string, permission: string): Promise<void> {
-    const { permissions } = await this.permissions.resolveForUser(userId);
+  private async requirePermission(requester: AuthenticatedUser, permission: string): Promise<void> {
+    const { permissions } = await this.permissions.resolveForUser(requester.id, requester.hotelId);
     if (!permissions.has(permission)) {
       throw new ForbiddenException("Permissions insuffisantes");
     }
@@ -109,7 +109,7 @@ export class DocumentsService {
   ) {
     const config = this.resourceConfig(resourceType);
     const parent = await this.loadParentInScope(resourceType, resourceId, requester);
-    await this.requirePermission(requester.id, config.managePermission);
+    await this.requirePermission(requester, config.managePermission);
 
     const extension = ALLOWED_MIME_TYPES[file.mimetype];
     if (!extension) {
@@ -169,7 +169,7 @@ export class DocumentsService {
   async list(resourceType: string, resourceId: string, requester: AuthenticatedUser) {
     const config = this.resourceConfig(resourceType);
     await this.loadParentInScope(resourceType, resourceId, requester);
-    await this.requirePermission(requester.id, config.viewPermission);
+    await this.requirePermission(requester, config.viewPermission);
 
     return this.prisma.document.findMany({
       where: { resourceType, resourceId, deletedAt: null },
@@ -185,7 +185,7 @@ export class DocumentsService {
     }
     const config = this.resourceConfig(document.resourceType);
     await this.loadParentInScope(document.resourceType, document.resourceId, requester);
-    await this.requirePermission(requester.id, config.viewPermission);
+    await this.requirePermission(requester, config.viewPermission);
 
     const buffer = await this.storage.read(document.storageKey);
     return { buffer, filename: document.filename, mimeType: document.mimeType };
@@ -198,7 +198,7 @@ export class DocumentsService {
     }
     const config = this.resourceConfig(document.resourceType);
     await this.loadParentInScope(document.resourceType, document.resourceId, requester);
-    await this.requirePermission(requester.id, config.managePermission);
+    await this.requirePermission(requester, config.managePermission);
 
     // Suppression réelle du contenu physique, pas seulement une marque en base — voir schema.prisma.
     await this.storage.delete(document.storageKey);

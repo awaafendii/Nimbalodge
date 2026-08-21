@@ -162,6 +162,24 @@ jamais une certitude sur la cause.
    `toolResults` porte les données brutes déjà minimisées de chaque Tool invoqué, affichées par le
    frontend à côté du texte généré (jamais uniquement le texte).
 
+## Mise à jour — RBAC multi-hôtel (`HotelMembership`)
+
+`PermissionsService.resolveForUser()` a gagné un second paramètre (`activeHotelId`) pour intégrer
+`HotelMembership` (voir `docs/architecture/rbac-multi-hotel.md`) — `AiOrchestratorService
+.resolveContext()` appelait déjà `resolveForUser(user.id, user.hotelId)`, donc **aucun changement
+de code** n'a été nécessaire côté Nimba AI, seulement l'extension de signature en amont. Ce qui a
+changé : `user.hotelId` (le JWT de la session) reflète désormais l'hôtel actif choisi via
+`switch-hotel`, potentiellement différent à chaque requête pour un même utilisateur multi-hôtel —
+`resolveContext()` recalcule donc un jeu de permissions différent après chaque switch, exactement
+comme pour l'API REST.
+
+Invariant vérifié explicitement pour la première fois cette étape (déjà vrai depuis Étape 4, mais
+jamais testé sous cet angle) : **aucun des 6 Tools ne définit de paramètre `hotelId`** dans son
+schéma de function-calling — l'hôtel résolu vient uniquement de `context.user.hotelId`. Une
+question qui nomme un autre hôtel que celui de la session active ne peut donc pas faire fuiter les
+données de cet hôtel, par construction de l'interface (pas une règle de filtrage qui pourrait avoir
+un trou). Vérifié par `test/nimba-ai-hotel-membership.e2e-spec.ts`.
+
 ## Tests
 
 - **Unit** : un `*.spec.ts` par Tool/Minimizer/Detector/Provider, plus `ai-tool-registry.spec.ts`
@@ -171,7 +189,15 @@ jamais une certitude sur la cause.
 - **E2E** : `nimba-ai.e2e-spec.ts` (RBAC réel par endpoint, isolation d'organisation, rejeu exact de
   l'exemple du brief), `nimba-ai-security.e2e-spec.ts` (passe dédiée Étape 11 : rejeu du brief via
   le *chat*, cohérence stricte des chiffres avec l'endpoint métier équivalent, indépendance
-  Insights/erreur LLM, surface figée du registre de Tools — aucun verbe d'écriture).
+  Insights/erreur LLM, surface figée du registre de Tools — aucun verbe d'écriture),
+  `nimba-ai-hotel-membership.e2e-spec.ts` (RBAC multi-hôtel : isolation via `HotelMembership`,
+  changement de contexte après `switch-hotel` réel — vérifié numériquement, aucune fuite même
+  quand la question nomme explicitement un autre hôtel, `nimba-ai.use` indépendant de toute
+  permission de domaine, audit d'un refus Tool avec le bon `hotelId`, parité AI/REST pour
+  `department-comparison`).
+- **Garde statique** : `security-invariants.spec.ts` — aucun fichier de `tools/`, `context/`,
+  `orchestrator/`, `chat/` n'importe `PrismaService` (seul `usage/ai-usage.service.ts`, télémétrie
+  non métier, y échappe légitimement).
 - **`FakeLLMProvider`** substitué à `GeminiProvider` dans **tous** les tests e2e
   (`test-app.ts`, `overrideProvider(LLM_PROVIDER_TOKEN)`) — `@prisma/client` charge le `.env` réel
   du poste comme effet de bord de sa propre résolution d'`env()`, ce qui avait fait fuiter la vraie
@@ -206,4 +232,6 @@ jamais une certitude sur la cause.
 
 - `docs/security/overview.md` section 9 — invariants de sécurité normatifs (résumé du pipeline
   ci-dessus, dans le document normatif transversal).
+- `docs/architecture/rbac-multi-hotel.md` — `HotelMembership`, `switch-hotel`, intégration avec
+  `resolveForUser()` et vérification RBAC multi-hôtel côté Nimba AI.
 - `docs/architecture/testing.md` — fondation de tests, principe "vraie base, pas de mocks".

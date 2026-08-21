@@ -9,6 +9,7 @@ import type { AuthenticatedUser } from "../../common/types/authenticated-request
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
+import { SwitchHotelDto } from "./dto/switch-hotel.dto";
 
 // login/refresh doivent être @Public() : impossible d'exiger un token d'accès pour en obtenir un
 // (deadlock). logout est @Public() pour une raison différente : il doit rester utilisable même
@@ -55,6 +56,21 @@ export class AuthController {
   @AuthenticatedOnly()
   @Get("me")
   me(@CurrentUser() user: AuthenticatedUser) {
-    return this.authService.resolveMe(user.id);
+    return this.authService.resolveMe(user.id, user.hotelId);
+  }
+
+  // Réémet les tokens avec un nouvel hotelId — toujours revalidé côté service contre une
+  // HotelMembership active (jamais un hotelId accepté tel quel du frontend, voir
+  // AuthService.switchHotel). Throttlé comme login/refresh : réémission de token, même surface
+  // d'exposition au brute-force.
+  @AuthenticatedOnly()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post("switch-hotel")
+  @HttpCode(HttpStatus.OK)
+  switchHotel(@Body() dto: SwitchHotelDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.authService.switchHotel(user.id, dto.hotelId, {
+      userAgent: request.headers["user-agent"] ?? null,
+      ipAddress: request.ip ?? null,
+    });
   }
 }
