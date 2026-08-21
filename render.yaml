@@ -61,6 +61,15 @@ services:
         sync: false
       - key: BOOTSTRAP_ADMIN_LAST_NAME
         sync: false
+      # Email transactionnel (réinitialisation de mot de passe) — optionnel : sans ces valeurs, le
+      # lien de reset reste écrit dans les logs serveur (Logs du service) au lieu d'être envoyé,
+      # comportement inchangé par rapport à avant. Voir docs/deployment/render.md.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        sync: false
+      - key: EMAIL_FROM_NAME
+        sync: false
 
   - type: web
     name: nimbalodge-web

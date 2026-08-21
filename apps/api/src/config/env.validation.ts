@@ -53,6 +53,39 @@ class EnvironmentVariables {
   @IsOptional()
   @IsNotEmpty()
   GEMINI_MODEL?: string;
+
+  // Email transactionnel (réinitialisation de mot de passe) — volontairement optionnelles, même
+  // raisonnement que GEMINI_API_KEY ci-dessus : l'app démarre normalement sans elles, le lien de
+  // reset reste alors journalisé côté serveur au lieu d'être envoyé (voir password-reset.service.ts
+  // et BrevoProvider.isConfigured()). BREVO_API_KEY n'est jamais exposée au frontend, jamais
+  // journalisée.
+  @IsOptional()
+  @IsNotEmpty()
+  EMAIL_PROVIDER?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  BREVO_API_KEY?: string;
+
+  // Adresse d'expéditeur — doit être un expéditeur vérifié dans le compte Brevo (voir
+  // docs/deployment/render.md). Aucun nom de domaine requis : Brevo permet de vérifier une seule
+  // adresse email sans posséder de domaine.
+  @IsOptional()
+  @IsNotEmpty()
+  EMAIL_FROM_ADDRESS?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  EMAIL_FROM_NAME?: string;
+
+  // URL de base du frontend, utilisée pour construire le lien cliquable dans l'email de
+  // réinitialisation (ex. https://nimbalodge-web.onrender.com/reset-password?token=...). Optionnelle
+  // : PasswordResetService retombe sur CORS_ORIGIN si absente (les deux pointent déjà vers la même
+  // origine frontend dans tous les déploiements actuels) — jamais un lien vers localhost en
+  // production par accident.
+  @IsOptional()
+  @IsNotEmpty()
+  WEB_APP_URL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {

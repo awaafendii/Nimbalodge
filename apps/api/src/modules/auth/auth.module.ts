@@ -5,6 +5,7 @@ import { PassportModule } from "@nestjs/passport";
 
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
+import { EmailModule } from "../email/email.module";
 import { PermissionsModule } from "../permissions/permissions.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
@@ -20,7 +21,7 @@ import { TwoFactorService } from "./two-factor.service";
 // avec deux secrets distincts (JWT_ACCESS_SECRET / JWT_REFRESH_SECRET) passés explicitement à
 // chaque appel — plus simple que deux instances de JwtService nommées séparément.
 @Module({
-  imports: [PassportModule, JwtModule.register({}), PermissionsModule],
+  imports: [PassportModule, JwtModule.register({}), PermissionsModule, EmailModule],
   controllers: [AuthController, PasswordResetController, TwoFactorController, SessionsController],
   providers: [
     AuthService,

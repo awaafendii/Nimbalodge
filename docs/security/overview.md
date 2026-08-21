@@ -98,9 +98,14 @@ mise à jour silencieuse de la règle.
   (anti-énumération), throttlé à 3/60s. Token brut (32 octets aléatoires, `randomBytes`) haché
   SHA-256 avant stockage (`PasswordResetToken.tokenHash`), expire après 30 min, usage unique
   (`usedAt`).
-- **Aucun fournisseur d'email n'est branché** (décision produit explicite, Étape 7) : le lien est
-  écrit dans les logs serveur via le `PinoLogger` injecté, **jamais retourné dans la réponse HTTP**.
-  Voir `password-reset.service.ts` et la section Risques résiduels ci-dessous.
+- **Envoi email réel via `EmailProvider`** (abstraction, même pattern que `LLMProvider`/
+  `StorageProvider`) : `BrevoProvider` est la seule implémentation réelle, sélectionnée par
+  `EMAIL_PROVIDER` (défaut `brevo`). Sans `BREVO_API_KEY`/`EMAIL_FROM_ADDRESS` configurées
+  (`isConfigured()` faux), le lien reste écrit dans les logs serveur via le `PinoLogger` injecté —
+  **jamais retourné dans la réponse HTTP** dans un cas comme dans l'autre. Envoi best-effort :
+  un échec du fournisseur (quota, panne réseau) ne fait jamais échouer la requête ni fuiter
+  d'information supplémentaire (même réponse générique). Voir `password-reset.service.ts`,
+  `modules/email/`, et `docs/deployment/render.md` (marche à suivre Brevo, sans nom de domaine).
 - Un reset réussi révoque **toutes** les sessions actives de l'utilisateur (`revokedReason:
   "password-reset"`) — si l'ancien mot de passe a fuité, les sessions ouvertes avec lui ne doivent
   pas survivre à la réinitialisation.
@@ -216,10 +221,12 @@ propres à cette fonctionnalité (constructions Étapes 1-11) :
 
 ## 10. Risques résiduels (avant première mise en production réelle)
 
-- **Aucun fournisseur d'email réel** : reset de mot de passe fonctionnel uniquement via lecture des
-  logs serveur — inutilisable pour de vrais utilisateurs finaux. Remplacer par Resend/SendGrid (ou
-  équivalent) avant tout accès public. Point d'intégration unique : `password-reset.service.ts`,
-  méthode `requestReset()`.
+- **Email réel (Brevo) implémenté mais optionnel — à activer avant tout accès public** : le code
+  (`BrevoProvider`, `modules/email/`) et l'UI (`/forgot-password`, `/reset-password`) sont en place
+  et testés, mais restent inertes tant que `BREVO_API_KEY`/`EMAIL_FROM_ADDRESS` ne sont pas
+  renseignées sur le service Render — sans elles, le reset fonctionne uniquement via lecture des
+  logs serveur, inutilisable pour de vrais utilisateurs finaux. Marche à suivre (sans nom de
+  domaine) : `docs/deployment/render.md`, étape 6.
 - **Stockage local des documents non viable sur Render** : le plan `free` (et la plupart des plans
   Render) ont un système de fichiers **éphémère** — tout document uploadé est perdu au prochain
   redémarrage/redéploiement. `StorageProvider` est conçu pour être remplacé (S3/R2/Cloudinary/...)
@@ -256,6 +263,8 @@ propres à cette fonctionnalité (constructions Étapes 1-11) :
 
 - `docs/architecture/rbac-multi-hotel.md` — `HotelMembership`, `switch-hotel`, 9 rôles métier,
   `HotelSwitcher` frontend (§1 ci-dessus en est le résumé RBAC, §9 le résumé Nimba AI).
+- `docs/architecture/email-delivery.md` — `EmailProvider`/`BrevoProvider`, pages `/forgot-password`
+  et `/reset-password` (§3 ci-dessus en est le résumé sécurité).
 - `docs/architecture/access-matrix.md` — matrice d'accès complète (profil → module → sous-module →
   route → permission), générée depuis le catalogue et le seed réels.
 - `docs/architecture/frontend-routes.md` — routes frontend vérifiées et visibilité nav par profil.

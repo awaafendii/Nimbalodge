@@ -54,6 +54,25 @@ export function useSwitchHotel() {
   });
 }
 
+// Pas de navigation automatique ni d'invalidation de cache : aucune session n'existe encore à ce
+// stade (utilisateur non connecté par définition sur /forgot-password et /reset-password).
+export function useRequestPasswordReset() {
+  return useMutation({
+    mutationFn: (email: string) => authService.requestPasswordReset(email),
+  });
+}
+
+export function useConfirmPasswordReset() {
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: ({ token, newPassword }: { token: string; newPassword: string }) =>
+      authService.confirmPasswordReset(token, newPassword),
+    onSuccess: () => {
+      navigate("/login", { replace: true, state: { passwordResetSuccess: true } });
+    },
+  });
+}
+
 export function useLogout() {
   const refreshToken = useAuthStore((s) => s.refreshToken);
   const clearAuth = useAuthStore((s) => s.clearAuth);

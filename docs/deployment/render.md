@@ -86,6 +86,35 @@ Une fois les deux services au vert (`Live`) : ouvre l'URL de `nimbalodge-web`, c
 (aucune recette/dépense) et Paramètres proposera **"Créer un hôtel"** — c'est le point de départ
 réel, pas une régression : configure ton premier hôtel toi-même depuis là.
 
+### 6. Activer l'email réel (optionnel, mais recommandé avant tout vrai utilisateur)
+
+Sans cette étape, un utilisateur qui a oublié son mot de passe reste bloqué (le lien de reset n'est
+écrit que dans les logs serveur, visibles par toi seul). Aucun nom de domaine requis.
+
+1. Crée un compte sur [app.brevo.com](https://app.brevo.com) — plan gratuit, 300 emails/jour à vie,
+   aucune carte bancaire demandée.
+2. **Paramètres** (icône engrenage, en haut à droite) → **Expéditeurs, domaines et dédiabilité** →
+   **Expéditeurs** → **Ajouter un expéditeur** : renseigne l'email que tu veux utiliser comme
+   expéditeur (le tien, ou une adresse dédiée type `noreply@...` si tu en as une) et confirme via
+   l'email de vérification que Brevo t'envoie. C'est cette étape — vérifier UNE adresse email,
+   pas un domaine entier — qui rend l'envoi possible sans nom de domaine.
+3. **Paramètres** → **Clés API SMTP & API** → **Générer une nouvelle clé API** → copie-la (elle ne
+   sera plus jamais affichée en entier ensuite).
+4. Sur le service **`nimbalodge-api`** → **Environment**, renseigne :
+
+   | Variable | Exemple |
+   |---|---|
+   | `BREVO_API_KEY` | la clé générée à l'étape 3 |
+   | `EMAIL_FROM_ADDRESS` | l'adresse exactement vérifiée à l'étape 2 |
+   | `EMAIL_FROM_NAME` | `NimbaLodge` (ou le nom que tu préfères voir comme expéditeur) |
+
+   Sauvegarde → Render relance automatiquement le déploiement. À partir de là, `POST /auth/password-
+   reset/request` envoie un vrai email au lieu de journaliser le lien — vérifiable en cliquant sur
+   "Mot de passe oublié ?" depuis l'écran de connexion.
+
+Sans ces variables, rien ne change : le comportement de repli (lien journalisé) reste actif, comme
+avant cette fonctionnalité.
+
 ## Limites connues avant une première mise en production réelle
 
 Voir `docs/security/overview.md` section "Risques résiduels" pour le détail technique — résumé
@@ -96,10 +125,11 @@ opérationnel ici :
   éphémère. Tout document uploadé disparaît au prochain déploiement/redémarrage du service
   `nimbalodge-api`. Ne pas exposer ce déploiement à de vrais utilisateurs qui compteraient sur la
   persistance de leurs documents tant qu'un `StorageProvider` cloud (S3/R2/...) n'est pas branché.
-- **Réinitialisation de mot de passe non fonctionnelle pour de vrais utilisateurs** : aucun
-  fournisseur d'email n'est branché — le lien de reset n'est écrit que dans les logs serveur
-  (visibles dans le dashboard Render → service `nimbalodge-api` → **Logs**), jamais envoyé par
-  email. À corriger avant tout accès public.
+- **Réinitialisation de mot de passe par email** : fonctionnelle dès que l'étape 6 ci-dessus
+  (`BREVO_API_KEY`/`EMAIL_FROM_ADDRESS`) est complétée. Tant que ces variables ne sont pas
+  renseignées, le lien de reset reste écrit dans les logs serveur (visibles dans le dashboard
+  Render → service `nimbalodge-api` → **Logs**), jamais envoyé par email — repli explicite, pas un
+  bug, mais inutilisable pour de vrais utilisateurs externes.
 
 ## Ce qui reste hors de portée de ce déploiement
 

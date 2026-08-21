@@ -1,8 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
+import type { ConfigService } from "@nestjs/config";
 import type { PinoLogger } from "nestjs-pino";
 
 import type { AuditService } from "../../common/audit/audit.service";
 import type { PrismaService } from "../../database/prisma.service";
+import type { EmailProvider } from "../email/email-provider.interface";
 import { PasswordResetService } from "./password-reset.service";
 
 // Unit — Prisma/Audit entièrement mockés (pas de base réelle), au contraire des e2e-spec du
@@ -10,20 +12,30 @@ import { PasswordResetService } from "./password-reset.service";
 // de compte, expiration/usage unique appliqués, révocation des sessions après changement de mot
 // de passe.
 describe("PasswordResetService", () => {
-  function buildService() {
+  function buildService(options?: { emailConfigured?: boolean; webAppUrl?: string }) {
     const prisma = {
       user: { findUnique: jest.fn(), update: jest.fn() },
       passwordResetToken: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       refreshToken: { updateMany: jest.fn() },
     };
     const audit = { record: jest.fn() };
-    const logger = { setContext: jest.fn(), info: jest.fn() };
+    const logger = { setContext: jest.fn(), info: jest.fn(), warn: jest.fn() };
+    const configValues: Record<string, string> = { CORS_ORIGIN: "http://localhost:5175" };
+    if (options?.webAppUrl) configValues.WEB_APP_URL = options.webAppUrl;
+    const config = { get: jest.fn((key: string) => configValues[key]) };
+    const emailProvider = {
+      name: "fake",
+      isConfigured: jest.fn().mockReturnValue(options?.emailConfigured ?? false),
+      send: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new PasswordResetService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
-      logger as unknown as PinoLogger
+      logger as unknown as PinoLogger,
+      config as unknown as ConfigService,
+      emailProvider as unknown as EmailProvider
     );
-    return { service, prisma, audit, logger };
+    return { service, prisma, audit, logger, config, emailProvider };
   }
 
   const activeUser = {
@@ -72,6 +84,42 @@ describe("PasswordResetService", () => {
       expect(expiresAtMs - before).toBeGreaterThan(29 * 60 * 1000);
       expect(expiresAtMs - before).toBeLessThan(31 * 60 * 1000);
       expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ outcome: "SUCCESS", action: "password-reset-request", userId: activeUser.id }));
+    });
+
+    it("journalise le lien (jamais d'envoi) quand aucun fournisseur email n'est configuré", async () => {
+      const { service, prisma, logger, emailProvider } = buildService({ emailConfigured: false });
+      prisma.user.findUnique.mockResolvedValue(activeUser);
+
+      await service.requestReset(activeUser.email, "127.0.0.1");
+
+      expect(emailProvider.send).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ email: activeUser.email, token: expect.any(String), resetUrl: expect.stringContaining("/reset-password?token=") }),
+        expect.any(String)
+      );
+    });
+
+    it("envoie un email réel avec le lien de réinitialisation quand un fournisseur est configuré, jamais un log", async () => {
+      const { service, prisma, logger, emailProvider } = buildService({ emailConfigured: true, webAppUrl: "https://nimbalodge-web.onrender.com" });
+      prisma.user.findUnique.mockResolvedValue(activeUser);
+
+      await service.requestReset(activeUser.email, "127.0.0.1");
+
+      expect(emailProvider.send).toHaveBeenCalledTimes(1);
+      const sent = emailProvider.send.mock.calls[0][0];
+      expect(sent.to).toBe(activeUser.email);
+      expect(sent.html).toContain("https://nimbalodge-web.onrender.com/reset-password?token=");
+      expect(logger.info).not.toHaveBeenCalled();
+    });
+
+    it("ne fait jamais échouer la requête si l'envoi d'email échoue (best-effort)", async () => {
+      const { service, prisma, emailProvider } = buildService({ emailConfigured: true });
+      prisma.user.findUnique.mockResolvedValue(activeUser);
+      emailProvider.send.mockRejectedValue(new Error("panne simulée du fournisseur"));
+
+      const result = await service.requestReset(activeUser.email, "127.0.0.1");
+
+      expect(result).toEqual({ success: true });
     });
   });
 

@@ -23,3 +23,13 @@ export function getMe(): Promise<AuthUser> {
 export function switchHotel(hotelId: string): Promise<AuthTokens> {
   return apiFetch<AuthTokens>("/auth/switch-hotel", { method: "POST", body: { hotelId } });
 }
+
+// Réponse volontairement identique que l'email existe ou non côté backend (anti-énumération,
+// voir PasswordResetService) — jamais interprétée comme "l'email existe" côté frontend.
+export function requestPasswordReset(email: string): Promise<{ success: true }> {
+  return apiFetch("/auth/password-reset/request", { method: "POST", body: { email }, skipAuthRefresh: true });
+}
+
+export function confirmPasswordReset(token: string, newPassword: string): Promise<{ success: true }> {
+  return apiFetch("/auth/password-reset/confirm", { method: "POST", body: { token, newPassword }, skipAuthRefresh: true });
+}

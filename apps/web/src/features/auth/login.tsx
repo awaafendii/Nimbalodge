@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { Button, Card, CardContent, CardHeader, CardTitle, Icons, Input, Label } from "@nimbalodge/ui";
 
 import { useLogin } from "../../hooks/use-auth.js";
@@ -11,7 +11,7 @@ import { useAuthStore } from "../../stores/auth-store.js";
 // d'onboarding, jamais fabriqués côté frontend.
 export default function LoginPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
-  const location = useLocation() as { state?: { from?: { pathname?: string } } };
+  const location = useLocation() as { state?: { from?: { pathname?: string }; passwordResetSuccess?: boolean } };
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const login = useLogin();
@@ -36,6 +36,11 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">Connexion à votre espace ERP</p>
         </CardHeader>
         <CardContent>
+          {location.state?.passwordResetSuccess ? (
+            <p className="mb-4 rounded-md bg-good-soft px-3 py-2 text-center text-sm text-good">
+              Mot de passe réinitialisé — connectez-vous avec votre nouveau mot de passe.
+            </p>
+          ) : null}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
@@ -49,7 +54,12 @@ export default function LoginPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Mot de passe</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Link to="/forgot-password" className="text-xs text-muted-foreground hover:underline">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"

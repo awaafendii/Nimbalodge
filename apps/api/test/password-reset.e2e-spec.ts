@@ -6,6 +6,7 @@ import { resetDatabase } from "./support/database";
 import { createTenant, seedPermissionCatalog } from "./support/fixtures";
 import { createTestApp } from "./support/test-app";
 import { PrismaService } from "../src/database/prisma.service";
+import { FakeEmailProvider } from "../src/modules/email/providers/fake-email.provider";
 
 // Étape 7 (durcissement Auth) — vérifie PasswordResetService via les endpoints réels : pas de
 // fuite d'existence de compte, token unique et hashé en base, expiration, usage unique, et
@@ -15,6 +16,7 @@ import { PrismaService } from "../src/database/prisma.service";
 describe("Réinitialisation de mot de passe", () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let fakeEmailProvider: FakeEmailProvider;
   let email: string;
   let password: string;
   let userId: string;
@@ -42,7 +44,7 @@ describe("Réinitialisation de mot de passe", () => {
   }
 
   beforeAll(async () => {
-    ({ app, prisma } = await createTestApp());
+    ({ app, prisma, fakeEmailProvider } = await createTestApp());
     await resetDatabase(prisma);
     await seedPermissionCatalog(prisma);
 
@@ -114,5 +116,42 @@ describe("Réinitialisation de mot de passe", () => {
       .post("/api/v1/auth/password-reset/confirm")
       .send({ token: "0".repeat(64), newPassword: "PeuImporte123!" })
       .expect(400);
+  });
+});
+
+// Email réel (suite Étape 7) — décrit séparément pour garder son propre budget de throttle
+// (3/60s sur /password-reset/request, voir le describe ci-dessus) : un seul appel ici, avec le
+// fournisseur configuré via FakeEmailProvider (jamais un vrai appel Brevo, voir test-app.ts).
+describe("Réinitialisation de mot de passe — email réellement envoyé (fournisseur configuré)", () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let fakeEmailProvider: FakeEmailProvider;
+
+  beforeAll(async () => {
+    ({ app, prisma, fakeEmailProvider } = await createTestApp());
+    await resetDatabase(prisma);
+    await seedPermissionCatalog(prisma);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it("envoie un vrai email avec le lien de réinitialisation quand un fournisseur est configuré, jamais un log", async () => {
+    const tenant = await createTenant(prisma, "password-reset-email-org");
+    fakeEmailProvider.setConfigured(true);
+
+    const infoSpy = jest.spyOn(PinoLogger.prototype, "info").mockImplementation(() => undefined);
+    try {
+      await request(app.getHttpServer()).post("/api/v1/auth/password-reset/request").send({ email: tenant.email }).expect(200);
+      expect(infoSpy).not.toHaveBeenCalled();
+    } finally {
+      infoSpy.mockRestore();
+    }
+
+    expect(fakeEmailProvider.sentEmails).toHaveLength(1);
+    const sent = fakeEmailProvider.sentEmails[0]!;
+    expect(sent.to).toBe(tenant.email);
+    expect(sent.html).toContain("/reset-password?token=");
   });
 });

@@ -147,10 +147,17 @@ async function main() {
   // Ensemble partagé HOTEL_ADMIN (conservé, plus attribué) / DIRECTEUR_HOTEL (rôle officiel) :
   // tout sauf hotels.create/hotels.update — gérer le portefeuille d'hôtels d'une organisation est
   // une opération org-wide (Boss), pas celle d'un rôle scopé à un seul hôtel. Mapping confirmé
-  // identique lors de la migration RBAC multi-hôtel (aucune permission ajoutée ni retirée).
+  // identique lors de la migration RBAC multi-hôtel initiale (aucune permission ajoutée ni
+  // retirée) ; roles.view ajouté ensuite (audit RBAC multi-hôtel, correctif création
+  // d'utilisateurs) — sans elle, DIRECTEUR_HOTEL avait users.create mais ne pouvait pas lister les
+  // rôles à proposer lors de la création d'un vrai membre d'équipe (GET /roles). L'exclusion de
+  // roles.view/permissions.view était une démonstration délibérée de différenciation Phase 3 (voir
+  // commentaire ci-dessus sur SUPER_ADMIN), pas une exigence produit — elle cède le pas dès qu'un
+  // vrai usage (créer un utilisateur) en dépend.
   const hotelAdminPermissionKeys = new Set([
     "users.view",
     "users.create",
+    "roles.view",
     "organizations.view",
     "hotels.view",
     "departments.view",

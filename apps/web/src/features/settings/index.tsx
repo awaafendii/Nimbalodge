@@ -22,9 +22,13 @@ import {
 
 import { QueryState } from "../../components/common/query-state.js";
 import type { Department } from "../../services/departments.js";
+import type { Role } from "../../services/roles.js";
+import type { User } from "../../services/users.js";
 import { useCreateDepartment, useDepartments, useUpdateDepartment } from "../../hooks/use-departments.js";
 import { useCreateHotel, useCurrentHotel, useHotels } from "../../hooks/use-hotels.js";
 import { usePermission } from "../../hooks/use-permission.js";
+import { useAssignableRoles } from "../../hooks/use-roles.js";
+import { useAddHotelMembership, useCreateUser, useRemoveHotelMembership, useUsers } from "../../hooks/use-users.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
 // Référence de branchement complet (Phase 14) : aucun département n'est imposé à la création d'un
@@ -35,6 +39,7 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-5">
       <HotelInfoCard />
+      <UsersCard />
       <DepartmentsCard />
     </div>
   );
@@ -253,6 +258,386 @@ function CreateHotelForm({ onDone }: { onDone: () => void }) {
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+// RBAC multi-hôtel (audit RBAC multi-hôtel, correctif création d'utilisateurs) — première UI pour
+// créer un vrai membre d'équipe avec un rôle métier réellement rattaché via HotelMembership (voir
+// UsersService.create()). Le sélecteur d'hôtel ne s'affiche que pour un demandeur org-wide
+// (SUPER_ADMIN) : un demandeur hôtel-scopé (DIRECTEUR_HOTEL, ou BOSS actif sur un hôtel donné) crée
+// toujours pour l'hôtel actif de sa propre session — même convention que CreateDepartmentForm.
+function UsersCard() {
+  const canViewUsers = usePermission("users.view");
+  const canCreateUsers = usePermission("users.create");
+  const authUser = useAuthStore((s) => s.user);
+  const users = useUsers();
+  const roles = useAssignableRoles();
+  const hotels = useHotels();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [manageUserId, setManageUserId] = useState<string | null>(null);
+
+  if (!canViewUsers) return null;
+
+  const manageTarget = users.data?.find((u) => u.id === manageUserId) ?? null;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Équipe</CardTitle>
+          {canCreateUsers ? (
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Icons.IconPlus />
+                  Nouvel utilisateur
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <CreateUserForm
+                  hotelOptions={!authUser?.hotel ? (hotels.data ?? []) : []}
+                  roleOptions={roles.data ?? []}
+                  onDone={() => setCreateOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          <QueryState
+            isLoading={users.isLoading}
+            error={users.error}
+            data={users.data}
+            onRetry={() => users.refetch()}
+            isEmpty={(data) => data.length === 0}
+            emptyTitle="Aucun utilisateur"
+            emptyDescription="Ajoutez le premier membre de votre équipe."
+            emptyAction={
+              canCreateUsers ? (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Icons.IconPlus />
+                  Nouvel utilisateur
+                </Button>
+              ) : undefined
+            }
+          >
+            {(data) => {
+              const columns: DataTableColumn<User>[] = [
+                {
+                  id: "name",
+                  header: "Nom",
+                  sortValue: (u) => `${u.lastName} ${u.firstName}`.toLowerCase(),
+                  cell: (u) => (
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-[var(--fw-subtitle-strong)] text-sm">
+                          {u.firstName} {u.lastName}
+                        </span>
+                        {!u.isActive ? <Badge variant="outline">Désactivé</Badge> : null}
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                    </div>
+                  ),
+                },
+                {
+                  id: "memberships",
+                  header: "Hôtels & rôles",
+                  cell: (u) =>
+                    u.hotelMemberships.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {u.hotelMemberships.map((m) => (
+                          <Badge key={m.hotelId} variant="secondary">
+                            {m.hotelName} · {m.roleName}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Aucun accès métier</span>
+                    ),
+                },
+                {
+                  id: "actions",
+                  header: "",
+                  align: "right",
+                  cell: (u) =>
+                    canCreateUsers ? (
+                      <Button variant="outline" size="sm" onClick={() => setManageUserId(u.id)}>
+                        Gérer les accès
+                      </Button>
+                    ) : null,
+                },
+              ];
+              return (
+                <DataTable
+                  columns={columns}
+                  data={data}
+                  getRowId={(u) => u.id}
+                  searchableText={(u) => `${u.firstName} ${u.lastName} ${u.email}`}
+                  searchPlaceholder="Rechercher un utilisateur (nom, email)…"
+                  emptyMessage="Aucun utilisateur ne correspond à cette recherche."
+                />
+              );
+            }}
+          </QueryState>
+        </CardContent>
+      </Card>
+
+      <Dialog open={manageTarget !== null} onOpenChange={(open) => !open && setManageUserId(null)}>
+        <DialogContent>
+          {manageTarget ? (
+            <ManageUserAccessForm
+              target={manageTarget}
+              hotelOptions={!authUser?.hotel ? (hotels.data ?? []) : []}
+              roleOptions={roles.data ?? []}
+              onDone={() => setManageUserId(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function CreateUserForm({
+  hotelOptions,
+  roleOptions,
+  onDone,
+}: {
+  hotelOptions: { id: string; name: string }[];
+  roleOptions: Role[];
+  onDone: () => void;
+}) {
+  const createUser = useCreateUser();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [hotelId, setHotelId] = useState("");
+  const [roleId, setRoleId] = useState("");
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (!roleId) return;
+    createUser.mutate(
+      { email, password, firstName, lastName, hotelId: hotelId || undefined, roleId },
+      { onSuccess: onDone }
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>Nouvel utilisateur</DialogTitle>
+      </DialogHeader>
+
+      {hotelOptions.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="user-hotel">Hôtel</Label>
+          <select
+            id="user-hotel"
+            required
+            value={hotelId}
+            onChange={(event) => setHotelId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner un hôtel
+            </option>
+            {hotelOptions.map((hotel) => (
+              <option key={hotel.id} value={hotel.id}>
+                {hotel.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="user-first-name">Prénom</Label>
+          <Input id="user-first-name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="user-last-name">Nom</Label>
+          <Input id="user-last-name" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="user-email">Email</Label>
+        <Input id="user-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="user-password">Mot de passe initial</Label>
+        <Input
+          id="user-password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          8 caractères minimum — communiquez-le à la personne concernée par un canal sûr. Elle pourra le changer
+          via "Mot de passe oublié" une fois connectée.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="user-role">Rôle</Label>
+        <select
+          id="user-role"
+          required
+          value={roleId}
+          onChange={(event) => setRoleId(event.target.value)}
+          className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+        >
+          <option value="" disabled>
+            Sélectionner un rôle
+          </option>
+          {roleOptions.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {createUser.isError ? (
+        <p className="text-sm text-destructive">
+          {createUser.error instanceof Error ? createUser.error.message : "Erreur inattendue."}
+        </p>
+      ) : null}
+
+      <DialogFooter>
+        <Button type="submit" disabled={createUser.isPending}>
+          {createUser.isPending ? "Création…" : "Créer"}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function ManageUserAccessForm({
+  target,
+  hotelOptions,
+  roleOptions,
+  onDone,
+}: {
+  target: User;
+  hotelOptions: { id: string; name: string }[];
+  roleOptions: Role[];
+  onDone: () => void;
+}) {
+  const addMembership = useAddHotelMembership();
+  const removeMembership = useRemoveHotelMembership();
+  const [hotelId, setHotelId] = useState("");
+  const [roleId, setRoleId] = useState("");
+
+  function handleAdd(event: FormEvent) {
+    event.preventDefault();
+    const targetHotelId = hotelId || target.hotelId;
+    if (!targetHotelId || !roleId) return;
+    addMembership.mutate(
+      { userId: target.id, hotelId: targetHotelId, roleId },
+      { onSuccess: () => setRoleId("") }
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <DialogHeader>
+        <DialogTitle>
+          Accès de {target.firstName} {target.lastName}
+        </DialogTitle>
+      </DialogHeader>
+
+      {target.hotelMemberships.length > 0 ? (
+        <ul className="flex flex-col divide-y divide-border">
+          {target.hotelMemberships.map((m) => (
+            <li key={m.hotelId} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span>
+                {m.hotelName} — {m.roleName}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={removeMembership.isPending}
+                onClick={() => removeMembership.mutate({ userId: target.id, hotelId: m.hotelId })}
+              >
+                Retirer
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">Aucun accès métier actif.</p>
+      )}
+
+      <form onSubmit={handleAdd} className="flex flex-col gap-3 border-t border-border pt-4">
+        <p className="text-sm font-[var(--fw-subtitle-strong)]">Ajouter ou modifier un accès</p>
+
+        {hotelOptions.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="membership-hotel">Hôtel</Label>
+            <select
+              id="membership-hotel"
+              required
+              value={hotelId}
+              onChange={(event) => setHotelId(event.target.value)}
+              className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            >
+              <option value="" disabled>
+                Sélectionner un hôtel
+              </option>
+              {hotelOptions.map((hotel) => (
+                <option key={hotel.id} value={hotel.id}>
+                  {hotel.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="membership-role">Rôle</Label>
+          <select
+            id="membership-role"
+            required
+            value={roleId}
+            onChange={(event) => setRoleId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="" disabled>
+              Sélectionner un rôle
+            </option>
+            {roleOptions.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {addMembership.isError ? (
+          <p className="text-sm text-destructive">
+            {addMembership.error instanceof Error ? addMembership.error.message : "Erreur inattendue."}
+          </p>
+        ) : null}
+
+        <Button type="submit" size="sm" disabled={addMembership.isPending} className="self-start">
+          {addMembership.isPending ? "Enregistrement…" : "Enregistrer"}
+        </Button>
+      </form>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onDone}>
+          Fermer
+        </Button>
+      </DialogFooter>
+    </div>
   );
 }
 

@@ -2,7 +2,9 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { RequireAuth } from "../components/auth/require-auth.js";
 import { AppShell } from "../components/layout/AppShell.js";
+import ForgotPasswordPage from "../features/auth/forgot-password.js";
 import LoginPage from "../features/auth/login.js";
+import ResetPasswordPage from "../features/auth/reset-password.js";
 import DashboardPage from "../features/dashboard/index.js";
 import FinanceBankPage from "../features/finance/bank-page.js";
 import FinanceBudgetsPage from "../features/finance/budgets-page.js";
@@ -41,6 +43,8 @@ import SettingsPage from "../features/settings/index.js";
 // le reste derrière RequireAuth → AppShell. Une route par module de nav-config.tsx.
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/forgot-password", element: <ForgotPasswordPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
   {
     element: <RequireAuth />,
     children: [

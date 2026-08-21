@@ -18,5 +18,6 @@ export function authed(app: INestApplication, token: string) {
     get: (url: string) => agent.get(url).set("Authorization", `Bearer ${token}`),
     post: (url: string) => agent.post(url).set("Authorization", `Bearer ${token}`),
     patch: (url: string) => agent.patch(url).set("Authorization", `Bearer ${token}`),
+    delete: (url: string) => agent.delete(url).set("Authorization", `Bearer ${token}`),
   };
 }
