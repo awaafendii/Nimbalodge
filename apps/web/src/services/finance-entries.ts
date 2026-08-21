@@ -71,6 +71,7 @@ export interface CreateCashTransactionInput {
 export interface Revenue {
   id: string;
   hotelId: string;
+  departmentId: string | null;
   categoryId: string;
   amount: string;
   currency: string;
@@ -85,6 +86,7 @@ export interface Revenue {
 export interface Expense {
   id: string;
   hotelId: string;
+  departmentId: string | null;
   categoryId: string;
   amount: string;
   currency: string;

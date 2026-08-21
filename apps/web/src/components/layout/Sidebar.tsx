@@ -1,11 +1,85 @@
 import { LogOut } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { Icons, ToggleGroup, ToggleGroupItem, cn } from "@nimbalodge/ui";
 
-import { NAV_GROUPS } from "./nav-config.js";
+import { NAV_GROUPS, type NavItem, type NavSubItem } from "./nav-config.js";
 import { useLogout } from "../../hooks/use-auth.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 import { useUIStore, type Theme } from "../../stores/ui-store.js";
+
+// Module avec sous-modules (ex. Finance) : ligne parent repliable — la flèche déplie/replie la
+// liste des sous-modules, indépendamment du clic sur le libellé qui navigue vers le tableau de
+// bord du module lui-même (`item.to`, désormais une vraie page, pas juste une redirection — voir
+// finance/overview-page.tsx). Auto-déplié dès qu'on est déjà sur une de ses sous-routes, pour ne
+// jamais masquer l'onglet actif.
+function NavParentItem({
+  item,
+  visibleChildren,
+  onNavigate,
+}: {
+  item: NavItem;
+  visibleChildren: NavSubItem[];
+  onNavigate?: () => void;
+}) {
+  const location = useLocation();
+  const isChildActive = visibleChildren.some(
+    (child) => location.pathname === child.to || location.pathname.startsWith(`${child.to}/`)
+  );
+  const [expanded, setExpanded] = useState(isChildActive);
+  useEffect(() => {
+    if (isChildActive) setExpanded(true);
+  }, [isChildActive]);
+
+  return (
+    <div>
+      <div className="flex items-center gap-1">
+        <NavLink
+          to={item.to}
+          end
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            cn(
+              "flex flex-1 items-center gap-3 rounded-md px-3 py-2 text-sm font-[var(--fw-subtitle)] text-sidebar-ink-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-ink [&_svg]:size-[18px]",
+              isActive && "bg-sidebar-active text-sidebar-ink"
+            )
+          }
+        >
+          <item.icon />
+          {item.label}
+        </NavLink>
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          aria-expanded={expanded}
+          aria-label={expanded ? `Réduire ${item.label}` : `Développer ${item.label}`}
+          className="flex size-7 flex-none items-center justify-center rounded-md text-sidebar-ink-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-ink [&_svg]:size-[15px]"
+        >
+          <Icons.IconChevronDown className={cn("transition-transform", !expanded && "-rotate-90")} />
+        </button>
+      </div>
+      {expanded ? (
+        <div className="ml-4 flex flex-col border-l border-sidebar-border pl-3">
+          {visibleChildren.map((child) => (
+            <NavLink
+              key={child.to}
+              to={child.to}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                cn(
+                  "rounded-md px-3 py-1.5 text-sm text-sidebar-ink-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-ink",
+                  isActive && "bg-sidebar-active text-sidebar-ink"
+                )
+              }
+            >
+              {child.label}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 // Port structurel de docs/legacy/nimbalodge-app/src/components/layout/Sidebar.jsx (marque, groupes de nav,
 // toggle de thème) vers Tailwind + shadcn. Nav filtrée par permission réelle (RBAC backend, Phase
@@ -37,7 +111,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV_GROUPS.map((group, i) => {
-          const items = group.items.filter((item) => !item.permission || hasPermission(item.permission));
+          // Un module avec sous-modules (ex. Finance) reste visible dès qu'au moins un enfant est
+          // autorisé, même sans permission propre sur le parent — voir nav-config.tsx.
+          const items = group.items.filter((item) => {
+            const visibleChildren = item.children?.filter((child) => !child.permission || hasPermission(child.permission));
+            if (item.children) return (visibleChildren?.length ?? 0) > 0;
+            return !item.permission || hasPermission(item.permission);
+          });
           if (items.length === 0) return null;
           return (
             <div key={group.label ?? i} className="mb-1">
@@ -46,22 +126,28 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   {group.label}
                 </div>
               ) : null}
-              {items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-[var(--fw-subtitle)] text-sidebar-ink-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-ink [&_svg]:size-[18px]",
-                      isActive && "bg-sidebar-active text-sidebar-ink"
-                    )
-                  }
-                >
-                  <item.icon />
-                  {item.label}
-                </NavLink>
-              ))}
+              {items.map((item) => {
+                const visibleChildren = item.children?.filter((child) => !child.permission || hasPermission(child.permission));
+                if (visibleChildren && visibleChildren.length > 0) {
+                  return <NavParentItem key={item.to} item={item} visibleChildren={visibleChildren} onNavigate={onNavigate} />;
+                }
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-[var(--fw-subtitle)] text-sidebar-ink-muted transition-colors hover:bg-sidebar-active hover:text-sidebar-ink [&_svg]:size-[18px]",
+                        isActive && "bg-sidebar-active text-sidebar-ink"
+                      )
+                    }
+                  >
+                    <item.icon />
+                    {item.label}
+                  </NavLink>
+                );
+              })}
             </div>
           );
         })}

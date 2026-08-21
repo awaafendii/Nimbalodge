@@ -48,20 +48,12 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
 
-// Référence de branchement (Étape 4, module 4/11) : "Employés, contrats, présence, congés"
-// (subtitle nav-config.tsx) — trois ressources Phase 8 (Employee/Attendance/LeaveRequest) sur un
-// seul écran, WorkSchedule laissé pour une itération ultérieure (non nommé dans le subtitle nav).
-export default function HrPage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <EmployeesCard />
-      <LeaveRequestsCard />
-      <AttendanceCard />
-    </div>
-  );
-}
-
-function EmployeesCard() {
+// Ancien point d'entrée unique /hr (Étape 4, module 4/11) — remplacé par une architecture module →
+// sous-module (RH devient un parent avec un écran dédié par sous-ressource, voir hr-layout.tsx +
+// router.tsx), même logique que Finance. Ce fichier reste la source des Cards/formulaires métier
+// existants (WorkSchedule laissé pour une itération ultérieure, non branché ici ni avant) : chaque
+// sous-page de features/hr/*-page.tsx importe et réutilise la Card correspondante telle quelle.
+export function EmployeesCard() {
   const user = useAuthStore((s) => s.user);
   const employees = useEmployees();
   const updateEmployee = useUpdateEmployee();
@@ -311,7 +303,7 @@ function CreateEmployeeForm({
   );
 }
 
-function LeaveRequestsCard() {
+export function LeaveRequestsCard() {
   const user = useAuthStore((s) => s.user);
   const leaveRequests = useLeaveRequests();
   const employees = useEmployees();
@@ -574,7 +566,7 @@ function CreateLeaveRequestForm({
   );
 }
 
-function AttendanceCard() {
+export function AttendanceCard() {
   const user = useAuthStore((s) => s.user);
   const attendance = useAttendance();
   const employees = useEmployees();

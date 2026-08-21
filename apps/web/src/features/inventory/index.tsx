@@ -50,20 +50,11 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR");
 }
 
-// Référence de branchement (Étape 4, module 7/11, dernier de "Achats & Stock") : "Produits,
-// entrepôts, mouvements" (subtitle nav-config.tsx). Entrepôts/Produits sont des catalogues
-// (comme Guest/RoomType) créés avant que des mouvements ne puissent les référencer.
-export default function InventoryPage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <WarehousesCard />
-      <ProductsCard />
-      <StockMovementsCard />
-    </div>
-  );
-}
-
-function WarehousesCard() {
+// Ancien point d'entrée unique /inventory — remplacé par une architecture module → sous-module
+// (Stocks devient un parent avec un écran dédié par sous-ressource, voir features/stocks/), même
+// logique que Finance/RH. Entrepôts/Produits sont des catalogues (comme Guest/RoomType) créés
+// avant que des mouvements ne puissent les référencer, conservé tel quel.
+export function WarehousesCard() {
   const user = useAuthStore((s) => s.user);
   const warehouses = useWarehouses();
   const updateWarehouse = useUpdateWarehouse();
@@ -268,7 +259,7 @@ function CreateWarehouseForm({
   );
 }
 
-function ProductsCard() {
+export function ProductsCard() {
   const user = useAuthStore((s) => s.user);
   const products = useProducts();
   const updateProduct = useUpdateProduct();
@@ -529,7 +520,7 @@ function CreateProductForm({
   );
 }
 
-function StockMovementsCard() {
+export function StockMovementsCard() {
   const user = useAuthStore((s) => s.user);
   const movements = useStockMovements();
   const products = useProducts();

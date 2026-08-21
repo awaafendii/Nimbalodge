@@ -10,6 +10,15 @@ export interface FinanceSummary {
   bankBalance: string;
 }
 
-export function getFinanceSummary(): Promise<FinanceSummary> {
-  return apiClient.get<FinanceSummary>("/finance/summary");
+export interface FinanceSummaryParams {
+  month?: number;
+  year?: number;
+}
+
+export function getFinanceSummary(params?: FinanceSummaryParams): Promise<FinanceSummary> {
+  const query = new URLSearchParams();
+  if (params?.month) query.set("month", String(params.month));
+  if (params?.year) query.set("year", String(params.year));
+  const qs = query.toString();
+  return apiClient.get<FinanceSummary>(`/finance/summary${qs ? `?${qs}` : ""}`);
 }

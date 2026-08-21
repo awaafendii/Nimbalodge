@@ -56,19 +56,13 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   OTHER: "Autre",
 };
 
-// Référence de branchement (Étape 4, module 5/11) : dernier volet RH/Paie (Phase 8). mark-paid
-// alimente automatiquement Finance (crée une Expense + CashTransaction/BankTransaction, §22) —
-// contrairement aux autres transitions à un clic (Confirmer/Approuver), elle exige catégorie +
-// compte + mode de paiement, d'où un dialogue dédié plutôt qu'un simple bouton.
-export default function PayrollPage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <PayslipsCard />
-    </div>
-  );
-}
-
-function PayslipsCard() {
+// Ancien point d'entrée unique /payroll (Étape 4, module 5/11) — Paie est désormais un sous-module
+// de RH (/hr/payroll, voir features/hr/payroll-page.tsx), même architecture module → sous-module
+// que Finance. mark-paid alimente automatiquement Finance (crée une Expense +
+// CashTransaction/BankTransaction, §22) — contrairement aux autres transitions à un clic
+// (Confirmer/Approuver), elle exige catégorie + compte + mode de paiement, d'où un dialogue dédié
+// plutôt qu'un simple bouton.
+export function PayslipsCard() {
   const user = useAuthStore((s) => s.user);
   const payslips = usePayslips();
   const employees = useEmployees();

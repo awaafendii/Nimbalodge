@@ -28,18 +28,10 @@ import type { RoomType } from "../../services/room-types.js";
 import type { Room } from "../../services/rooms.js";
 import { useAuthStore } from "../../stores/auth-store.js";
 
-// Référence de branchement (Étape 4, module 2/11) : Types de chambres avant Chambres (une chambre
-// référence toujours un type déjà créé, comme Département avant Activité en Phase 4).
-export default function RoomsPage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <RoomTypesCard />
-      <RoomsCard />
-    </div>
-  );
-}
-
-function RoomTypesCard() {
+// Ancien point d'entrée unique /rooms — remplacé par le sous-module Hébergement → Chambres (voir
+// features/hebergement/rooms-page.tsx), même architecture que Finance/RH. Types de chambres avant
+// Chambres (une chambre référence toujours un type déjà créé) conservé tel quel, sur un seul écran.
+export function RoomTypesCard() {
   const user = useAuthStore((s) => s.user);
   const roomTypes = useRoomTypes();
   const updateRoomType = useUpdateRoomType();
@@ -251,7 +243,7 @@ function CreateRoomTypeForm({
   );
 }
 
-function RoomsCard() {
+export function RoomsCard() {
   const user = useAuthStore((s) => s.user);
   const rooms = useRooms();
   const roomTypes = useRoomTypes();

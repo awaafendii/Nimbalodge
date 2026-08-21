@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { cn } from "../lib/utils.js";
+import { TrendIndicator } from "./trend-indicator.js";
 
 // Port de docs/legacy/nimbalodge-app/src/components/ui/Kpi.jsx (+ .kpi* dans components.css) vers Tailwind.
 // Pas d'équivalent shadcn — composé à la main sur les tokens de marque.
@@ -33,16 +34,7 @@ export function KpiCard({ icon, iconTone = "default", label, value, delta, note,
         ) : (
           <span />
         )}
-        {delta ? (
-          <span
-            className={cn(
-              "flex items-center gap-[3px] text-[11.3px] font-[var(--fw-small-strong)]",
-              delta.sentiment === "up" ? "text-good" : "text-critical"
-            )}
-          >
-            {delta.value >= 0 ? "▲" : "▼"} {Math.abs(delta.value)}%
-          </span>
-        ) : null}
+        {delta ? <TrendIndicator value={delta.value} sentiment={delta.sentiment} /> : null}
       </div>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="font-title text-[23px] font-[var(--fw-title-strong)] tabular-nums tracking-[0.1px]">{value}</div>

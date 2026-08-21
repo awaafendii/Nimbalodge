@@ -109,25 +109,16 @@ const CATEGORY_TYPE_LABELS: Record<FinancialCategoryType, string> = { REVENUE: "
 
 const CLIENT_TYPE_LABELS: Record<ClientType, string> = { INDIVIDUAL: "Particulier", COMPANY: "Entreprise" };
 
-// Module de référence pour le branchement frontend↔backend (Phase 14) : listes réelles (GET
-// /revenues, GET /expenses), création réelle, workflow d'approbation de dépense réel — aucune
-// donnée fabriquée. Catégories/caisses viennent de ce que l'hôtel a lui-même configuré (Paramètres,
-// aucun défaut imposé) ; tant qu'aucune n'existe, les formulaires de création affichent leur propre
-// état "aucune catégorie/caisse — configurez-en une d'abord" plutôt qu'un select vide silencieux.
-export default function FinancePage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <RevenuesCard />
-      <ExpensesCard />
-      <CashAccountsCard />
-      <BankAccountsCard />
-      <BudgetsCard />
-      <InvoicesCard />
-    </div>
-  );
-}
-
-function RevenuesCard() {
+// Ancien point d'entrée unique /finance (Phase 14) — remplacé par une architecture module →
+// sous-module (Finance devient un parent avec un écran dédié par sous-ressource, voir
+// finance-layout.tsx + router.tsx). Ce fichier reste la source des Cards/formulaires métier
+// existants (liste réelle + création réelle, aucune donnée fabriquée) : chaque sous-page de
+// features/finance/*-page.tsx importe et réutilise la Card correspondante telle quelle, sans
+// réécrire ses champs ni son workflow. Catégories/caisses viennent de ce que l'hôtel a lui-même
+// configuré (Paramètres, aucun défaut imposé) ; tant qu'aucune n'existe, les formulaires de
+// création affichent leur propre état "aucune catégorie/caisse — configurez-en une d'abord" plutôt
+// qu'un select vide silencieux.
+export function RevenuesCard() {
   const revenues = useRevenues();
   const [dialogOpen, setDialogOpen] = useState(false);
   const canCreate = usePermission("finance-revenues.create");
@@ -320,7 +311,7 @@ function CreateRevenueForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function ExpensesCard() {
+export function ExpensesCard() {
   const expenses = useExpenses();
   const [dialogOpen, setDialogOpen] = useState(false);
   const submitExpense = useSubmitExpense();
@@ -541,7 +532,7 @@ function CreateExpenseForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function CashAccountsCard() {
+export function CashAccountsCard() {
   const user = useAuthStore((s) => s.user);
   const cashAccounts = useCashAccounts();
   const updateCashAccount = useUpdateCashAccount();
@@ -861,7 +852,7 @@ function CashTransactionsView({ account }: { account: CashAccount }) {
   );
 }
 
-function BankAccountsCard() {
+export function BankAccountsCard() {
   const user = useAuthStore((s) => s.user);
   const bankAccounts = useBankAccounts();
   const updateBankAccount = useUpdateBankAccount();
@@ -1191,7 +1182,7 @@ function BankTransactionsView({ account }: { account: BankAccount }) {
   );
 }
 
-function BudgetsCard() {
+export function BudgetsCard() {
   const user = useAuthStore((s) => s.user);
   const budgets = useBudgets();
   const hotels = useHotels();
@@ -1588,7 +1579,7 @@ interface InvoiceLineDraft {
   taxRate: string;
 }
 
-function InvoicesCard() {
+export function InvoicesCard() {
   const user = useAuthStore((s) => s.user);
   const invoices = useInvoices();
   const hotels = useHotels();

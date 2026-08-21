@@ -42,19 +42,11 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR");
 }
 
-// Référence de branchement (Étape 4, module 3/11) : le plus complexe des 11 — cycle de vie à 6
-// statuts (Phase 7) avec des actions contextuelles par statut plutôt qu'un simple bascule
-// actif/inactif. Room/RoomTypes (module 2/11) et Guests (module 1/11) sont des dépendances
-// directes du formulaire de création — d'où leur ordre dans le Master Prompt §54.
-export default function ReservationsPage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <ReservationsCard />
-    </div>
-  );
-}
-
-function ReservationsCard() {
+// Ancien point d'entrée unique /reservations — remplacé par une architecture module → sous-module
+// (Hébergement devient un parent avec un écran dédié par sous-ressource, voir
+// features/hebergement/) même logique que Finance/RH. Cycle de vie à 6 statuts (Phase 7) avec des
+// actions contextuelles par statut, conservé tel quel.
+export function ReservationsCard() {
   const user = useAuthStore((s) => s.user);
   const reservations = useReservations();
   const guests = useGuests();

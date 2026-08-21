@@ -28,16 +28,9 @@ import { useAuthStore } from "../../stores/auth-store.js";
 // Référence de branchement (Étape 4, module 1/11 — ordre §54 du Master Prompt) : même convention
 // que Départements (Phase 14/Étape 1) — DataTable réel, formulaire de création minimal mais
 // complet (identité + contact + document, ce qu'un hôtel doit réellement savoir d'un client),
-// aucune donnée fictive.
-export default function GuestsPage() {
-  return (
-    <div className="flex flex-col gap-5">
-      <GuestsCard />
-    </div>
-  );
-}
-
-function GuestsCard() {
+// aucune donnée fictive. Ancien point d'entrée unique /guests — remplacé par le sous-module
+// Hébergement → Clients (voir features/hebergement/guests-page.tsx).
+export function GuestsCard() {
   const user = useAuthStore((s) => s.user);
   const guests = useGuests();
   const updateGuest = useUpdateGuest();
